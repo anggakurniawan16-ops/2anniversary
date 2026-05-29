@@ -110,6 +110,14 @@
             color: #b76e79;
         }
 
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+            gap: 5px;
+        }
+
         /* ========================================================
            STRIP FOTO HASIL JEPRETAN
            ======================================================== */
@@ -196,9 +204,20 @@
             background-color: #b76e79;
             color: white;
             border: none;
+            width: 100%;
+            max-width: 200px;
         }
         .btn-capture:hover {
             background-color: #9e5963;
+        }
+
+        .btn-undo {
+            background-color: #f0e2e6;
+            color: #8b5a6c;
+            border: 1px dashed #8b5a6c;
+        }
+        .btn-undo:hover {
+            background-color: #e2cbd2;
         }
 
         .btn-download {
@@ -233,8 +252,12 @@
                 <div id="timerOverlay" class="timer-overlay">3</div>
             </div>
             <div class="capture-status" id="statusText">Siap berpose? (Butuh 3 Foto)</div>
-            <button class="btn btn-capture" id="captureBtn" onclick="mulaiCountdown()">TAKE FOTO</button>
-            <button class="btn" id="resetBtn" style="font-size: 0.75rem; border: none;" onclick="resetFoto()">Reset Strip</button>
+            
+            <div class="action-buttons">
+                <button class="btn btn-capture" id="captureBtn" onclick="mulaiCountdown()">AMBIL FOTO</button>
+                <button class="btn btn-undo" id="undoBtn" onclick="undoFotoLast()" style="display: none;">↩ Ulang Foto</button>
+                <button class="btn" id="resetBtn" style="font-size: 0.75rem; border: none;" onclick="resetFoto()">Reset Semua</button>
+            </div>
         </div>
 
         <div class="photostrip-container">
@@ -244,7 +267,7 @@
                 <div class="pb-frame" id="frame-3">Slot Foto 3</div>
                 
                 <div class="pb-footer">
-                    <p class="names">angga & tsania</p>
+                    <p class="names">Angga & Tsania</p>
                     <p class="date">19 . 07 . 2024</p>
                 </div>
             </div>
@@ -262,6 +285,7 @@
         const statusText = document.getElementById('statusText');
         const timerOverlay = document.getElementById('timerOverlay');
         const captureBtn = document.getElementById('captureBtn');
+        const undoBtn = document.getElementById('undoBtn');
         let fotoCount = 0;
         let isCountingDown = false;
         let sisaFoto = []; 
@@ -277,7 +301,7 @@
 
         function mulaiCountdown() {
             if (fotoCount >= 3) {
-                statusText.innerText = "Strip sudah penuh! Reset jika ingin mengulang.";
+                statusText.innerText = "Strip sudah penuh! Hapus foto terakhir atau reset untuk mengulang.";
                 return;
             }
             if (isCountingDown) return;
@@ -285,6 +309,7 @@
             isCountingDown = true;
             captureBtn.disabled = true;
             captureBtn.style.opacity = '0.5';
+            undoBtn.disabled = true;
             
             let timeLeft = 3;
             timerOverlay.innerText = timeLeft;
@@ -310,7 +335,6 @@
             const currentFrame = document.getElementById(`frame-${fotoCount}`);
             currentFrame.innerHTML = ''; 
 
-            // Mengambil resolusi asli dari stream video yang aktif di HP secara dinamis
             const activeWidth = video.videoWidth || 640;
             const activeHeight = video.videoHeight || 480;
 
@@ -319,12 +343,10 @@
             canvas.height = activeHeight;
             const ctx = canvas.getContext('2d');
 
-            // Proses mirroring yang aman
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            // Render ulang khusus untuk peninjauan di layar HP agar tetap aman dilihat
             const displayCanvas = document.createElement('canvas');
             displayCanvas.width = activeWidth;
             displayCanvas.height = activeHeight;
@@ -332,8 +354,11 @@
             dCtx.drawImage(canvas, 0, 0);
             currentFrame.appendChild(displayCanvas);
 
-            // Menyimpan objek kanvas fisik asli ke memori ram
             sisaFoto.push(canvas);
+
+            // Tampilkan tombol undo karena minimal ada 1 foto yang bisa dibatalkan
+            undoBtn.style.display = 'inline-block';
+            undoBtn.disabled = false;
 
             if (fotoCount < 3) {
                 statusText.innerText = `Foto ke-${fotoCount} berhasil disimpan!`;
@@ -346,6 +371,33 @@
             }
         }
 
+        // ========================================================
+        // FITUR BARU: CANCEL / UNDO FOTO TERAKHIR SAJA
+        // ========================================================
+        function undoFotoLast() {
+            if (isCountingDown || fotoCount === 0) return;
+
+            // Kembalikan teks penampung slot foto yang dihapus
+            const currentFrame = document.getElementById(`frame-${fotoCount}`);
+            currentFrame.innerHTML = `Slot Foto ${fotoCount}`;
+
+            // Hapus data foto terakhir dari array penyimpanan memori
+            sisaFoto.pop();
+            fotoCount--;
+
+            // Sembunyikan kembali tombol undo jika semua foto sudah dibatalkan
+            if (fotoCount === 0) {
+                undoBtn.style.display = 'none';
+                statusText.innerText = "Siap berpose? (Butuh 3 Foto)";
+            } else {
+                statusText.innerText = `Foto terakhir dihapus. Silakan ambil ulang foto ke-${fotoCount + 1}!`;
+            }
+
+            // Aktifkan kembali tombol capture utama
+            captureBtn.disabled = false;
+            captureBtn.style.opacity = '1';
+        }
+
         function resetFoto() {
             if (isCountingDown) return;
             fotoCount = 0;
@@ -355,12 +407,10 @@
             document.getElementById('frame-3').innerHTML = 'Slot Foto 3';
             captureBtn.style.opacity = '1';
             captureBtn.disabled = false;
+            undoBtn.style.display = 'none';
             statusText.innerText = "Siap berpose kembali? (Butuh 3 Foto)";
         }
 
-        // ========================================================
-        // LOGIKA PENYUSUNAN BARU: KOMPUTASI PROPORSI MATEMATIS AKTIF
-        // ========================================================
         function simpanKeGaleri() {
             if (fotoCount < 3) {
                 alert("Jepret 3 foto dulu ya sebelum mendownload! 😉");
@@ -369,14 +419,12 @@
 
             const outputCanvas = document.createElement('canvas');
             outputCanvas.width = 600;
-            outputCanvas.height = 1800;
+            outputCanvas.height = 1430; 
             const ctx = outputCanvas.getContext('2d');
 
-            // Membuat Background Canvas utama berwarna putih bersih
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
 
-            // Standar Ukuran Slot Foto yang Diinginkan di lembar cetak (Rasio 4:3)
             const slotWidth = 520;  
             const slotHeight = 390; 
             const marginX = 40;     
@@ -385,7 +433,6 @@
             for (let i = 0; i < 3; i++) {
                 const fotoMentah = sisaFoto[i];
                 
-                // Menghitung rasio potong object-fit cover secara manual & dinamis berdasarkan orientasi HP
                 const srcWidth = fotoMentah.width;
                 const srcHeight = fotoMentah.height;
                 
@@ -394,47 +441,39 @@
                 const srcRatio = srcWidth / srcHeight;
 
                 if (srcRatio > targetRatio) {
-                    // Jika kamera terlalu lebar (Landscape)
                     cropHeight = srcHeight;
                     cropWidth = srcHeight * targetRatio;
                     cropX = (srcWidth - cropWidth) / 2;
                     cropY = 0;
                 } else {
-                    // Jika kamera terlalu tinggi (Portrait bawaan HP)
                     cropWidth = srcWidth;
                     cropHeight = srcWidth / targetRatio;
                     cropX = 0;
                     cropY = (srcHeight - cropHeight) / 2;
                 }
 
-                // Gambar foto ke kanvas menggunakan koordinat potong dinamis yang sudah dihitung
                 ctx.drawImage(fotoMentah, cropX, cropY, cropWidth, cropHeight, marginX, yPositions[i], slotWidth, slotHeight);
             }
 
-            // Elemen Dekorasi Garis Putus-putus Atas Footer
             ctx.strokeStyle = "#e8e2d5";
             ctx.lineWidth = 3;
             ctx.setLineDash([8, 6]);
             ctx.beginPath();
-            ctx.moveTo(marginX, 1340);
-            ctx.lineTo(outputCanvas.width - marginX, 1340);
+            ctx.moveTo(marginX, 1315);
+            ctx.lineTo(outputCanvas.width - marginX, 1315);
             ctx.stroke();
 
-            // Render Teks Identitas Berbasis Koordinat Vektor HD
             ctx.setLineDash([]); 
             ctx.textAlign = "center";
             
-            // Nama
             ctx.fillStyle = "#5c4d4d";
-            ctx.font = "italic 42px 'Playfair Display', Georgia, serif";
-            ctx.fillText("angga & tsania", outputCanvas.width / 2, 1440);
+            ctx.font = "italic 38px 'Playfair Display', Georgia, serif";
+            ctx.fillText("angga & tsania", outputCanvas.width / 2, 1370);
 
-            // Tanggal
             ctx.fillStyle = "#a6828e";
-            ctx.font = "600 20px 'Plus Jakarta Sans', sans-serif";
-            ctx.fillText("19 . 07 . 2024", outputCanvas.width / 2, 1510);
+            ctx.font = "600 18px 'Plus Jakarta Sans', sans-serif";
+            ctx.fillText("19 . 07 . 2024", outputCanvas.width / 2, 1405);
 
-            // Download file akhir
             const link = document.createElement('a');
             link.download = 'Angga-Tsania-Photobooth.png';
             link.href = outputCanvas.toDataURL('image/png');
