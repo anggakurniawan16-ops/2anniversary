@@ -65,6 +65,7 @@
             align-items: center;
             width: 100%;
             max-width: 440px;
+            height: fit-content;
         }
 
         .video-container {
@@ -83,7 +84,6 @@
             transform: scaleX(-1); /* Efek Cermin */
         }
 
-        /* Angka hitung mundur yang muncul di tengah kamera */
         .timer-overlay {
             position: absolute;
             top: 0;
@@ -97,7 +97,6 @@
             color: white;
             font-size: 5rem;
             font-weight: bold;
-            font-family: 'Plus Jakarta Sans', sans-serif;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.2s ease;
@@ -112,60 +111,53 @@
         }
 
         /* ========================================================
-           STRIP FOTO HASIL JEPRETAN
+           STRIP FOTO HASIL JEPRETAN (MEMAKAI BACKGROUND BINGKAI CANVA)
            ======================================================== */
         .photostrip-container {
             width: 100%;
-            max-width: 420px;
+            max-width: 360px; /* Disesuaikan agar proporsional di HP */
         }
 
         .photostrip { 
-            background-color: #ffffff;
+            /* Menggunakan file Canva kamu sebagai background utama */
+            background-image: url('foto1.jpeg'); 
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            background-position: center;
             width: 100%;
-            padding: 20px 20px 30px 20px;
+            /* Padding disesuaikan agar letak foto pas di dalam area kosong template */
+            padding: 95px 42px 140px 42px; 
             box-shadow: 0 25px 50px rgba(139, 90, 108, 0.15);
-            border-radius: 2px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px; /* Jarak pas antar kotak foto di template */
         }
 
         .pb-frame { 
             width: 100%; 
-            height: 260px;
-            background-color: #f7f5f0;
-            margin-bottom: 15px; 
+            /* Menggunakan aspect-ratio kotak 1:1 murni agar foto TIDAK GEPENG */
+            aspect-ratio: 1.18 / 1; 
+            background-color: rgba(247, 245, 240, 0.9);
             overflow: hidden;
-            border: 1px solid rgba(0, 0, 0, 0.02);
+            border-radius: 20px; /* Menyesuaikan kelengkungan gelombang Canva */
             display: flex;
             justify-content: center;
             align-items: center;
-            color: #ccc;
+            color: #8b5a6c;
             font-size: 0.8rem;
+            font-weight: bold;
         }
         
+        /* Mengatasi foto gepeng */
         .pb-frame canvas { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover;
+            width: 100% !important; 
+            height: 100% !important; 
+            object-fit: cover !important; /* Memotong otomatis sisa kamera secara proporsional */
         }
 
+        /* Menghilangkan footer default karena sudah ada bawaan gambar Canva */
         .pb-footer { 
-            text-align: center;
-            margin-top: 20px;
-            border-top: 1px dashed #e8e2d5;
-            padding-top: 15px;
-        }
-
-        .pb-footer .names {
-            font-family: 'Playfair Display', serif;
-            font-style: italic;
-            font-size: 1.2rem;
-            color: #5c4d4d;
-            margin-bottom: 4px;
-        }
-
-        .pb-footer .date {
-            font-size: 0.7rem;
-            letter-spacing: 4px;
-            color: #a6828e;
+            display: none;
         }
 
         /* ========================================================
@@ -221,7 +213,7 @@
 </head>
 <body>
 
-    <audio id="lagu-romantis" loop><source src="musik/romantis.mp3" type="audio/mpeg"></audio>
+    <audio id="lagu-romantis" loop><source src="musik.mp3" type="audio/mpeg"></audio>
 
     <h2>our photobooth.</h2>
     <p class="subtitle">capture your happy moments</p>
@@ -265,7 +257,6 @@
         let fotoCount = 0;
         let isCountingDown = false;
 
-        // 1. AKSES WEBCAM OTOMATIS SAAT HALAMAN DIBUKA
         navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
             .then(stream => {
                 video.srcObject = stream;
@@ -275,13 +266,12 @@
                 statusText.innerText = "Gagal memuat kamera. Izinkan akses webcam browser ya!";
             });
 
-        // 2. LOGIKA HITUNG MUNDUR 3 DETIK
         function mulaiCountdown() {
             if (fotoCount >= 3) {
                 statusText.innerText = "Strip sudah penuh! Reset jika ingin mengulang.";
                 return;
             }
-            if (isCountingDown) return; // Mencegah klik ganda saat countdown berjalan
+            if (isCountingDown) return;
 
             isCountingDown = true;
             captureBtn.disabled = true;
@@ -301,12 +291,11 @@
                     clearInterval(interval);
                     timerOverlay.style.opacity = '0';
                     isCountingDown = false;
-                    ambilFoto(); // Ambil foto tepat setelah waktu habis
+                    ambilFoto();
                 }
             }, 1000);
         }
 
-        // 3. FUNGSI MENGAMBIL FOTO (SETELAH TIMER HABIS)
         function ambilFoto() {
             fotoCount++;
             const currentFrame = document.getElementById(`frame-${fotoCount}`);
@@ -317,7 +306,6 @@
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
 
-            // Efek mirror
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
             
@@ -325,7 +313,6 @@
             ctx.filter = "grayscale(10%) contrast(105%)";
             currentFrame.appendChild(canvas);
 
-            // Cek sisa kuota foto
             if (fotoCount < 3) {
                 statusText.innerText = `Foto ke-${fotoCount} berhasil disimpan!`;
                 captureBtn.disabled = false;
@@ -337,9 +324,8 @@
             }
         }
 
-        // 4. RESET FOTO UNTUK MENGULANG POSE
         function resetFoto() {
-            if (isCountingDown) return; // Tidak boleh reset saat sedang countdown
+            if (isCountingDown) return;
             fotoCount = 0;
             document.getElementById('frame-1').innerHTML = 'Slot Foto 1';
             document.getElementById('frame-2').innerHTML = 'Slot Foto 2';
@@ -349,7 +335,6 @@
             statusText.innerText = "Siap berpose kembali? (Butuh 3 Foto)";
         }
 
-        // 5. DOWNLOAD STRIP FOTO
         function simpanKeGaleri() {
             if (fotoCount < 3) {
                 alert("Jepret 3 foto dulu ya sebelum mendownload! 😉");
@@ -357,7 +342,7 @@
             }
 
             const targetStrip = document.getElementById('cetakanFoto');
-            html2canvas(targetStrip, { scale: 2 }).then(canvas => {
+            html2canvas(targetStrip, { scale: 2, useCORS: true }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = 'Angga-Tsania-Photobooth.png';
                 link.href = canvas.toDataURL('image/png');
@@ -365,9 +350,6 @@
             });
         }
 
-        // ========================================================
-        // KONTROL AUDIO (LANJUTAN TRANSMISI)
-        // ========================================================
         const lagu = document.getElementById('lagu-romantis');
 
         window.addEventListener('load', () => {
