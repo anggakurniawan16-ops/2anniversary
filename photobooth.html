@@ -53,7 +53,7 @@
         }
 
         /* ========================================================
-           KOTAK KAMERA (LIVE VIEW) + TIMER OVERLAY
+           KOTAK KAMERA (LIVE VIEW)
            ======================================================== */
         .camera-box {
             background: white;
@@ -81,7 +81,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Efek Cermin */
+            transform: scaleX(-1);
         }
 
         .timer-overlay {
@@ -111,7 +111,7 @@
         }
 
         /* ========================================================
-           STRIP FOTO HASIL JEPRETAN (PROPORSIONAL PAS DI HP)
+           STRIP FOTO HASIL JEPRETAN (RESPONSIF & PAS DI LAYAR HP)
            ======================================================== */
         .photostrip-container {
             width: 100%;
@@ -121,7 +121,7 @@
         .photostrip { 
             background-color: #ffffff;
             width: 100%;
-            padding: 20px 20px 30px 20px;
+            padding: 20px;
             box-shadow: 0 25px 50px rgba(139, 90, 108, 0.15);
             border-radius: 2px;
             display: flex;
@@ -130,8 +130,7 @@
 
         .pb-frame { 
             width: 100%; 
-            /* Perbaikan Utama: Memaksa rasio foto potret 4:3 standar kamera agar natural */
-            aspect-ratio: 4 / 3; 
+            aspect-ratio: 4 / 3; /* Rasio potret kamera normal */
             background-color: #f7f5f0;
             margin-bottom: 15px; 
             overflow: hidden;
@@ -146,12 +145,12 @@
         .pb-frame canvas { 
             width: 100% !important; 
             height: 100% !important; 
-            object-fit: cover !important; /* Memotong sisa gambar secara alami tanpa ditarik */
+            object-fit: cover !important; 
         }
 
         .pb-footer { 
             text-align: center;
-            margin-top: 20px;
+            margin-top: 10px;
             border-top: 1px dashed #e8e2d5;
             padding-top: 15px;
         }
@@ -219,7 +218,6 @@
             text-align: center;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -266,6 +264,7 @@
         const captureBtn = document.getElementById('captureBtn');
         let fotoCount = 0;
         let isCountingDown = false;
+        let sisaFoto = []; // Menyimpan data gambar mentah
 
         navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
             .then(stream => {
@@ -316,12 +315,21 @@
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
 
+            // Efek mirror pas ambil foto
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
-            
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            ctx.filter = "grayscale(10%) contrast(105%)";
-            currentFrame.appendChild(canvas);
+            
+            // Tampilkan ke layar HP biar kelihatan
+            const displayCanvas = document.createElement('canvas');
+            displayCanvas.width = canvas.width;
+            displayCanvas.height = canvas.height;
+            const dCtx = displayCanvas.getContext('2d');
+            dCtx.drawImage(canvas, 0, 0);
+            currentFrame.appendChild(displayCanvas);
+
+            // Simpan data aslinya ke array memori agar tidak rusak oleh ukuran HP
+            sisaFoto.push(canvas);
 
             if (fotoCount < 3) {
                 statusText.innerText = `Foto ke-${fotoCount} berhasil disimpan!`;
@@ -337,6 +345,7 @@
         function resetFoto() {
             if (isCountingDown) return;
             fotoCount = 0;
+            sisaFoto = [];
             document.getElementById('frame-1').innerHTML = 'Slot Foto 1';
             document.getElementById('frame-2').innerHTML = 'Slot Foto 2';
             document.getElementById('frame-3').innerHTML = 'Slot Foto 3';
@@ -346,7 +355,7 @@
         }
 
         // ========================================================
-        // PERBAIKAN UTAMA: MEMAKSA DIMENSI CANVAS OUTPUT TETAP ALAMI
+        // MODEL BARU: RE-RENDER SECARA MANUAL (ANTI GEPENG DI HP)
         // ========================================================
         function simpanKeGaleri() {
             if (fotoCount < 3) {
@@ -354,26 +363,65 @@
                 return;
             }
 
-            const targetStrip = document.getElementById('cetakanFoto');
-            
-            // Menghitung rasio dimensi nyata elemen
-            const targetWidth = 800; // Standar lebar kanvas unduhan kualitas tinggi (px)
-            const aspectRatio = targetStrip.offsetWidth / targetStrip.offsetHeight;
-            const targetHeight = targetWidth / aspectRatio;
+            // Membuat kanvas bayangan dengan resolusi cetak studio yang fixed (lebar 500px, tinggi 1500px)
+            const outputCanvas = document.createElement('canvas');
+            outputCanvas.width = 500;
+            outputCanvas.height = 1500;
+            const ctx = outputCanvas.getContext('2d');
 
-            html2canvas(targetStrip, { 
-                scale: 2, 
-                useCORS: true,
-                width: targetWidth,
-                height: targetHeight,
-                windowWidth: targetStrip.offsetWidth,
-                windowHeight: targetStrip.offsetHeight
-            }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'Angga-Tsania-Photobooth.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            });
+            // 1. Gambar Background Putih Bersih
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+
+            // 2. Gambar 3 Foto Secara Proporsional Mutlak (Anti-Gepeng)
+            const fotoWidth = 430;  // Lebar foto di strip
+            const fotoHeight = 322; // Tinggi foto (Rasio 4:3)
+            const xXpos = 35;       // Margin kiri kanan agar seimbang di tengah
+            const yPositions = [40, 402, 764]; // Posisi vertikal pas untuk masing-masing foto
+
+            for (let i = 0; i < 3; i++) {
+                const imgMentah = sisaFoto[i];
+                // Menggunakan teknik masking potong object-fit cover secara matematis
+                const hRatio = imgMentah.width / fotoWidth;
+                const vRatio = imgMentah.height / fotoHeight;
+                const ratio  = Math.min(hRatio, vRatio);
+                const sWidth = fotoWidth * ratio;
+                const sHeight = fotoHeight * ratio;
+                const sX = (imgMentah.width - sWidth) / 2;
+                const sY = (imgMentah.height - sHeight) / 2;
+
+                ctx.drawImage(imgMentah, sX, sY, sWidth, sHeight, xXpos, yPositions[i], fotoWidth, fotoHeight);
+            }
+
+            // 3. Gambar Garis Putus-putus Dekorasi Atas Footer
+            ctx.strokeStyle = "#e8e2d5";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(35, 1130);
+            ctx.lineTo(465, 1130);
+            ctx.stroke();
+
+            // 4. Gambar Teks Custom Nama & Tanggal Langsung Berbasis Vektor HD
+            ctx.setLineDash([]); // Reset garis biasa
+            ctx.textAlign = "center";
+            
+            // Cetak Nama "angga & tsania"
+            ctx.fillStyle = "#5c4d4d";
+            ctx.font = "italic 36px 'Playfair Display', Georgia, serif";
+            ctx.fillText("angga & tsania", outputCanvas.width / 2, 1220);
+
+            // Cetak Tanggal "19 . 07 . 2024"
+            ctx.fillStyle = "#a6828e";
+            ctx.font = "600 18px 'Plus Jakarta Sans', sans-serif";
+            ctx.letterSpacing = "4px"; // Fitur modern browser untuk spasi teks
+            ctx.fillText("19 . 07 . 2024", outputCanvas.width / 2, 1280);
+
+            // 5. Eksekusi Download Otomatis
+            const link = document.createElement('a');
+            link.download = 'Angga-Tsania-Photobooth.png';
+            link.href = outputCanvas.toDataURL('image/png');
+            link.click();
         }
 
         const lagu = document.getElementById('lagu-romantis');
