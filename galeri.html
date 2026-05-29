@@ -4,51 +4,147 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memory Lane | Angga & Tsania</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&family=Playfair+Display:ital,wght@0,400;1,400&family=Great+Vibes&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&family=Great+Vibes&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Montserrat', sans-serif; background-color: #fdfbf7; color: #4a4a4a; overflow-x: hidden; }
         
-        /* Efek Tirai */
-        .curtain-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; display: flex; pointer-events: none; }
-        .curtain-left, .curtain-right { width: 50%; height: 100%; background-color: #5c1d24; transition: transform 2.5s cubic-bezier(0.77, 0, 0.175, 1); }
-        .curtain-open .curtain-left { transform: translateX(-100%); }
-        .curtain-open .curtain-right { transform: translateX(100%); }
+        /* ========================================================
+           EFEK TIRAI FOTO - FIX ANTI-HILANG & ANTI-GEPENG
+           ======================================================== */
+        .curtain-container { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 9999; 
+            pointer-events: none; 
+            transition: opacity 2.5s ease; 
+        }
+        
+        .curtain-wrapper-left, .curtain-wrapper-right {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            /* Kunci Utama: Mengembalikan warna maroon sebagai cadangan jika gambar gagal dimuat */
+            background-color: #5c1d24; 
+            /* Sementara diarahkan ke foto1.jpeg agar langsung muncul hasilnya. 
+               Bisa kamu ganti sendiri menjadi 'foto/namafilemu.jpeg' jika ingin diganti */
+            background-image: url('foto/cover1.jpeg'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: transform 2.5s cubic-bezier(0.77, 0, 0.175, 1), opacity 2.5s ease;
+        }
 
+        /* Tirai Kiri: Menampilkan gambar area sisi kiri saja */
+        .curtain-wrapper-left {
+            left: 0;
+            clip-path: inset(0 50% 0 0);
+        }
+        
+        /* Tirai Kanan: Menampilkan gambar area sisi kanan saja */
+        .curtain-wrapper-right {
+            right: 0;
+            clip-path: inset(0 0 0 50%);
+        }
+
+        /* Transisi saat tirai terbuka membelah & memudar */
+        .curtain-open {
+            opacity: 0; 
+        }
+        .curtain-open .curtain-wrapper-left { 
+            transform: translateX(-50%); 
+            opacity: 0; 
+        }
+        .curtain-open .curtain-wrapper-right { 
+            transform: translateX(50%); 
+            opacity: 0; 
+        }
+
+        /* ========================================================
+           TATA LETAK KONTEN GALERI
+           ======================================================== */
         .gallery-container { max-width: 800px; margin: 0 auto; padding: 60px 20px; text-align: center; }
-        .gallery-title { font-family: 'Great Vibes', cursive; font-size: 3.5rem; color: #b76e79; }
+        .gallery-title { font-family: 'Great Vibes', cursive; font-size: 4rem; color: #b76e79; margin-bottom: 5px; }
         
         .memory-item { display: flex; flex-direction: column; align-items: center; margin-bottom: 80px; opacity: 0; transform: translateY(40px); transition: all 1s ease; }
         .memory-item.show { opacity: 1; transform: translateY(0); }
-        .memory-img-wrapper { width: 100%; max-width: 450px; border-radius: 15px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .memory-img-wrapper img { width: 100%; height: auto; }
-        .memory-text { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-style: italic; color: #555; max-width: 500px; }
         
-        .btn { padding: 14px 32px; background-color: #b76e79; color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: 600; }
+        .memory-img-wrapper { width: 100%; max-width: 450px; border-radius: 15px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        .memory-img-wrapper img { width: 100%; height: auto; display: block; }
+        
+        .memory-text { 
+            font-family: 'Lora', serif; 
+            font-size: 1rem; 
+            font-style: italic; 
+            color: #5c4d4d; 
+            max-width: 480px; 
+            line-height: 1.75; 
+            letter-spacing: 0.3px;
+            text-align: center;
+            padding: 0 15px;
+        }
+        
+        .btn { padding: 14px 32px; background-color: #b76e79; color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: 600; margin-top: 20px; transition: background 0.3s ease; }
+        .btn:hover { background-color: #9e5963; }
     </style>
 </head>
 <body>
 
-<audio id="lagu-romantis" loop><source src="musik.mp3" type="audio/mpeg"></audio>
+    <audio id="lagu-romantis" loop><source src="musik/musik.mp3" type="audio/mpeg"></audio>
 
     <div class="curtain-container" id="tirai">
-        <div class="curtain-left"></div>
-        <div class="curtain-right"></div>
+        <div class="curtain-wrapper-left"></div>
+        <div class="curtain-wrapper-right"></div>
     </div>
 
     <div class="gallery-container">
         <h2 class="gallery-title">Our Memory Lane</h2>
-        <p style="margin-bottom: 50px; font-style: italic;">Setiap detiknya berharga bersamamu</p>
+        <p style="margin-bottom: 50px; font-style: italic; color: #a6828e;">Setiap detiknya berharga bersamamu</p>
         
         <div class="memory-item">
-            <div class="memory-img-wrapper"><img src="foto1.jpeg" alt="Foto 1">
-            <p class="memory-text">"foto ini di ambil 21 juli 2024, tepat setelah 2 hari kami saling berjanji untuk menjalin hubungan asmara. mungkin ada yang tanya, " foto first datenya mana? foto jadiannya mana?" yaaa... itulah kami, pada awal first time dan pas jadian pun kami tidak punya foto foto itu. kami memang di awal masih canggung untuk foto bersama hehe</p>
+            <div class="memory-img-wrapper">
+                <img src="foto/foto1.jpeg" alt="Foto 1">
+            </div>
+            <p class="memory-text">"Foto ini di ambil 21 juli 2024, tepat setelah 2 hari kami saling berjanji untuk menjalin hubungan asmara. Mungkin ada yang tanya, "Foto first datenya mana? Foto jadiannya mana?" yaaa... itulah kami, pada awal first date dan pas jadian pun kami tidak punya foto foto itu. kami memang di awal masih canggung untuk foto bersama hehe"</p>
         </div>
 
         <div class="memory-item">
-            <div class="memory-img-wrapper"><img src="foto2.jpeg" alt="Foto 2"></div>
-            <p class="memory-text">"Tertawa lepas bersamamu adalah bagian favoritku..."</p>
+            <div class="memory-img-wrapper">
+                <img src="foto/foto2.jpeg" alt="Foto 2">
+            </div>
+            <p class="memory-text">"Ini adalah foto date pertama kita setelah jadian, foto ini di ambil di salah satu studio photobooth di daerah Kayutangan Malang."</p>
         </div>
+
+         <div class="memory-item">
+            <div class="memory-img-wrapper">
+                <img src="foto/foto3.jpeg" alt="Foto 3">
+            </div>
+            <p class="memory-text">"Hampir tiap kita ketemu, pasti kita sempatkan untuk foto di photobooth. Mungkin mbak/mas penjaga photobooth udah hafal kali sama wajah kami hahaha. Eh, di web ini ada fitur photobooth juga loo, nanti kamu bisa cobain di menu paling bawah."</p>
+        </div>
+
+        <div class="memory-item">
+            <div class="memory-img-wrapper">
+                <img src="foto/foto4.jpeg" alt="Foto 4">
+            </div>
+            <p class="memory-text">"Dan gongnya foto kita pernah terpampang di studio photobooth Ourbox Kayutangan Malang. Kata mas/mbak nya biar jadi reverensi foto, biar yang foto ga diem dieman lama di studio buat cari reverensi gaya aja haha"</p>
+        </div>
+
+        <div class="memory-item">
+            <div class="memory-img-wrapper">
+                <img src="foto/foto5.jpeg" alt="Foto 5">
+            </div>
+            <p class="memory-text">"Kalo ini foto di Wisata Dusun Kuliner Batu Malang. Ini momen spesial juga bagi kami, kami pertama kali di foto pakai jasa foto profesional di sana. Bahkan sempet di kasi reverensi gaya ala ala preweding wkwk, sampe malu di liatin orang banyakk. GG si buat mbanya yang motoin kita kemarin"</p>
+        </div>
+
+        <div class="memory-item">
+            <div class="memory-img-wrapper">
+                <img src="foto/foto6.jpeg" alt="Foto 6">
+            </div>
+            <p class="memory-text">"Nah, kalo ini foto studio pertama kita. Awalnya ga sengaja mampir ke sini, dulu kirain ini studio photobooth eh ternyata emang studio photo. Berhubung lagi hujan deres ga berhenti-henti akhirnya neduh deh di studionya. Eh sama penjaganya ditawarin buat foto disana, karena sebelunya kuota foto disana udah full. Tapi berhubung hujan akhirnya ada yang di cancel jadi kita bisa foto disana."</p>
 
         <button class="btn" onclick="kePhotobooth()">Yuk, Bikin Memori Baru! 📸</button>
     </div>
@@ -56,7 +152,6 @@
     <script>
         const lagu = document.getElementById('lagu-romantis');
 
-        // Logika Sinkronisasi Musik & Buka Tirai otomatis saat load
         window.addEventListener('load', () => {
             if (localStorage.getItem('putarMusik') === 'true') {
                 lagu.currentTime = parseFloat(localStorage.getItem('waktuMusik') || 0);
@@ -69,7 +164,6 @@
             }, 300);
         });
 
-        // Simpan posisi detik musik secara berkala
         setInterval(() => {
             localStorage.setItem('waktuMusik', lagu.currentTime);
         }, 500);
@@ -78,7 +172,6 @@
             window.location.href = 'photobooth.html';
         }
 
-        // Efek Scroll
         const items = document.querySelectorAll('.memory-item');
         function cekScroll() {
             items.forEach(item => {
