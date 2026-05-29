@@ -10,7 +10,7 @@
         body { font-family: 'Montserrat', sans-serif; background-color: #fdfbf7; color: #4a4a4a; overflow-x: hidden; }
         
         /* ========================================================
-           EFEK TIRAI FOTO - FIX ANTI-HILANG & ANTI-GEPENG
+           EFEK TIRAI FOTO - PERBAIKAN SINKRONISASI LAPTOP & HP
            ======================================================== */
         .curtain-container { 
             position: fixed; 
@@ -28,27 +28,34 @@
             top: 0;
             width: 100%;
             height: 100%;
-            /* Kunci Utama: Mengembalikan warna maroon sebagai cadangan jika gambar gagal dimuat */
             background-color: #5c1d24; 
-            /* Sementara diarahkan ke foto1.jpeg agar langsung muncul hasilnya. 
-               Bisa kamu ganti sendiri menjadi 'foto/namafilemu.jpeg' jika ingin diganti */
             background-image: url('foto/cover.jpeg'); 
             background-size: cover;
-            background-position: center;
             background-repeat: no-repeat;
             transition: transform 2.5s cubic-bezier(0.77, 0, 0.175, 1), opacity 2.5s ease;
         }
 
-        /* Tirai Kiri: Menampilkan gambar area sisi kiri saja */
+        /* DEFAULT (LAPTOP): Fokus ke area bawah foto (center bottom) agar wajah tidak terpotong ke bawah */
         .curtain-wrapper-left {
             left: 0;
             clip-path: inset(0 50% 0 0);
+            background-position: center bottom;
         }
         
-        /* Tirai Kanan: Menampilkan gambar area sisi kanan saja */
         .curtain-wrapper-right {
             right: 0;
             clip-path: inset(0 0 0 50%);
+            background-position: center bottom;
+        }
+
+        /* KHUSUS DI HP (Layar di bawah 768px): Menggeser posisi foto ke ujung masing-masing wajah */
+        @media (max-width: 768px) {
+            .curtain-wrapper-left {
+                background-position: left bottom; /* Memaksa wajah Tsania di kiri bawah muncul */
+            }
+            .curtain-wrapper-right {
+                background-position: right bottom; /* Memaksa wajah Angga di kanan bawah muncul */
+            }
         }
 
         /* Transisi saat tirai terbuka membelah & memudar */
@@ -145,6 +152,7 @@
                 <img src="foto/foto6.jpeg" alt="Foto 6">
             </div>
             <p class="memory-text">"Nah, kalo ini foto studio pertama kita. Awalnya ga sengaja mampir ke sini, dulu kirain ini studio photobooth eh ternyata emang studio photo. Berhubung lagi hujan deres ga berhenti-henti akhirnya neduh deh di studionya. Eh sama penjaganya ditawarin buat foto disana, karena sebelunya kuota foto disana udah full. Tapi berhubung hujan akhirnya ada yang di cancel jadi kita bisa foto disana."</p>
+        </div>
 
         <button class="btn" onclick="kePhotobooth()">Yuk, Bikin Memori Baru! 📸</button>
     </div>
