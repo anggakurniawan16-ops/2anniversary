@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Photobooth | Angga & Tsania</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: linear-gradient(135deg, #f5f0e6, #ecd5e9);
+            min-height: 100vh;
+            padding: 40px 20px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #4a3e3e;
+        }
+
+        h2 {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-weight: 400;
+            font-size: 2.5rem;
+            color: #8b5a6c;
+            margin-bottom: 5px;
+            text-transform: lowercase;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #a6828e;
+            margin-bottom: 30px;
+        }
+
+        .workspace {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 40px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        /* ========================================================
+           KOTAK KAMERA (LIVE VIEW) + TIMER OVERLAY
+           ======================================================== */
+        .camera-box {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(139, 90, 108, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 440px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #333;
+        }
+
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Efek Cermin */
+        }
+
+        /* Angka hitung mundur yang muncul di tengah kamera */
+        .timer-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.2);
+            color: white;
+            font-size: 5rem;
+            font-weight: bold;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 10;
+        }
+
+        .capture-status {
+            margin: 15px 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #b76e79;
+        }
+
+        /* ========================================================
+           STRIP FOTO HASIL JEPRETAN
+           ======================================================== */
+        .photostrip-container {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .photostrip { 
+            background-color: #ffffff;
+            width: 100%;
+            padding: 20px 20px 30px 20px;
+            box-shadow: 0 25px 50px rgba(139, 90, 108, 0.15);
+            border-radius: 2px;
+        }
+
+        .pb-frame { 
+            width: 100%; 
+            height: 260px;
+            background-color: #f7f5f0;
+            margin-bottom: 15px; 
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.02);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #ccc;
+            font-size: 0.8rem;
+        }
+        
+        .pb-frame canvas { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover;
+        }
+
+        .pb-footer { 
+            text-align: center;
+            margin-top: 20px;
+            border-top: 1px dashed #e8e2d5;
+            padding-top: 15px;
+        }
+
+        .pb-footer .names {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-size: 1.2rem;
+            color: #5c4d4d;
+            margin-bottom: 4px;
+        }
+
+        .pb-footer .date {
+            font-size: 0.7rem;
+            letter-spacing: 4px;
+            color: #a6828e;
+        }
+
+        /* ========================================================
+           BUTTONS
+           ======================================================== */
+        .btn { 
+            padding: 12px 28px; 
+            background-color: transparent; 
+            color: #8b5a6c; 
+            border: 1px solid #8b5a6c; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        
+        .btn:hover { 
+            background-color: #8b5a6c; 
+            color: white;
+        }
+
+        .btn-capture {
+            background-color: #b76e79;
+            color: white;
+            border: none;
+        }
+        .btn-capture:hover {
+            background-color: #9e5963;
+        }
+
+        .btn-download {
+            background-color: #5c4d4d;
+            color: white;
+            border: none;
+            width: 100%;
+            margin-top: 15px;
+        }
+        .btn-download:hover {
+            background-color: #423636;
+        }
+
+        .navigation-box {
+            margin-top: 40px;
+            width: 100%;
+            text-align: center;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+    <audio id="lagu-romantis" loop><source src="musik/romantis.mp3" type="audio/mpeg"></audio>
+
+    <h2>our photobooth.</h2>
+    <p class="subtitle">capture your happy moments</p>
+
+    <div class="workspace">
+        <div class="camera-box">
+            <div class="video-container">
+                <video id="webcam" autoplay playsinline></video>
+                <div id="timerOverlay" class="timer-overlay">3</div>
+            </div>
+            <div class="capture-status" id="statusText">Siap berpose? (Butuh 3 Foto)</div>
+            <button class="btn btn-capture" id="captureBtn" onclick="mulaiCountdown()">TAKE FOTO</button>
+            <button class="btn" id="resetBtn" style="font-size: 0.75rem; border: none;" onclick="resetFoto()">Reset Strip</button>
+        </div>
+
+        <div class="photostrip-container">
+            <div class="photostrip" id="cetakanFoto">
+                <div class="pb-frame" id="frame-1">Slot Foto 1</div>
+                <div class="pb-frame" id="frame-2">Slot Foto 2</div>
+                <div class="pb-frame" id="frame-3">Slot Foto 3</div>
+                
+                <div class="pb-footer">
+                    <p class="names">angga & tsania</p>
+                    <p class="date">19 . 07 . 2024</p>
+                </div>
+            </div>
+            
+            <button class="btn btn-download" onclick="simpanKeGaleri()">💾 Download Hasil Foto</button>
+        </div>
+    </div>
+
+    <div class="navigation-box">
+        <button class="btn" onclick="kembali()">⬅ back to gallery</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const statusText = document.getElementById('statusText');
+        const timerOverlay = document.getElementById('timerOverlay');
+        const captureBtn = document.getElementById('captureBtn');
+        let fotoCount = 0;
+        let isCountingDown = false;
+
+        // 1. AKSES WEBCAM OTOMATIS SAAT HALAMAN DIBUKA
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Gagal mengakses kamera: ", err);
+                statusText.innerText = "Gagal memuat kamera. Izinkan akses webcam browser ya!";
+            });
+
+        // 2. LOGIKA HITUNG MUNDUR 3 DETIK
+        function mulaiCountdown() {
+            if (fotoCount >= 3) {
+                statusText.innerText = "Strip sudah penuh! Reset jika ingin mengulang.";
+                return;
+            }
+            if (isCountingDown) return; // Mencegah klik ganda saat countdown berjalan
+
+            isCountingDown = true;
+            captureBtn.disabled = true;
+            captureBtn.style.opacity = '0.5';
+            
+            let timeLeft = 3;
+            timerOverlay.innerText = timeLeft;
+            timerOverlay.style.opacity = '1';
+            statusText.innerText = `Bersiap dalam... ${timeLeft}`;
+
+            const interval = setInterval(() => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    timerOverlay.innerText = timeLeft;
+                    statusText.innerText = `Bersiap dalam... ${timeLeft}`;
+                } else {
+                    clearInterval(interval);
+                    timerOverlay.style.opacity = '0';
+                    isCountingDown = false;
+                    ambilFoto(); // Ambil foto tepat setelah waktu habis
+                }
+            }, 1000);
+        }
+
+        // 3. FUNGSI MENGAMBIL FOTO (SETELAH TIMER HABIS)
+        function ambilFoto() {
+            fotoCount++;
+            const currentFrame = document.getElementById(`frame-${fotoCount}`);
+            currentFrame.innerHTML = ''; 
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+
+            // Efek mirror
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.filter = "grayscale(10%) contrast(105%)";
+            currentFrame.appendChild(canvas);
+
+            // Cek sisa kuota foto
+            if (fotoCount < 3) {
+                statusText.innerText = `Foto ke-${fotoCount} berhasil disimpan!`;
+                captureBtn.disabled = false;
+                captureBtn.style.opacity = '1';
+            } else {
+                statusText.innerText = "Yaaay! Strip foto kamu sudah jadi. Yuk download!";
+                captureBtn.style.opacity = '0.5';
+                captureBtn.disabled = true;
+            }
+        }
+
+        // 4. RESET FOTO UNTUK MENGULANG POSE
+        function resetFoto() {
+            if (isCountingDown) return; // Tidak boleh reset saat sedang countdown
+            fotoCount = 0;
+            document.getElementById('frame-1').innerHTML = 'Slot Foto 1';
+            document.getElementById('frame-2').innerHTML = 'Slot Foto 2';
+            document.getElementById('frame-3').innerHTML = 'Slot Foto 3';
+            captureBtn.style.opacity = '1';
+            captureBtn.disabled = false;
+            statusText.innerText = "Siap berpose kembali? (Butuh 3 Foto)";
+        }
+
+        // 5. DOWNLOAD STRIP FOTO
+        function simpanKeGaleri() {
+            if (fotoCount < 3) {
+                alert("Jepret 3 foto dulu ya sebelum mendownload! 😉");
+                return;
+            }
+
+            const targetStrip = document.getElementById('cetakanFoto');
+            html2canvas(targetStrip, { scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'Angga-Tsania-Photobooth.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        // ========================================================
+        // KONTROL AUDIO (LANJUTAN TRANSMISI)
+        // ========================================================
+        const lagu = document.getElementById('lagu-romantis');
+
+        window.addEventListener('load', () => {
+            if (localStorage.getItem('putarMusik') === 'true') {
+                lagu.currentTime = parseFloat(localStorage.getItem('waktuMusik') || 0);
+                lagu.play().catch(err => console.log(err));
+            }
+        });
+
+        setInterval(() => {
+            localStorage.setItem('waktuMusik', lagu.currentTime);
+        }, 500);
+
+        function kembali() {
+            window.location.href = 'galeri.html';
+        }
+    </script>
+</body>
+</html>

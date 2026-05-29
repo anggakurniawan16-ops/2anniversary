@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Anniversary | Angga & Tsania ✨</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        /* ========================================================
+           1. RESET & STYLE DASAR
+           ======================================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+            display: flex; 
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            /* Background Gradasi Pastel Bergerak (Soft Pink, Lavender, Peach) */
+            background: linear-gradient(135deg, #fbc5d8, #ecd5e9, #f7d6c8);
+            background-size: 400% 400%;
+            animation: gradientBg 12s ease infinite;
+            color: #4a3e3e;
+            text-align: center;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animasi Perubahan Warna Background secara Halus */
+        @keyframes gradientBg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Container Utama agar Konten Rapi di Tengah */
+        .welcome-container {
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 2; /* Berada di atas kelopak bunga */
+        }
+
+        /* ========================================================
+           2. TYPOGRAPHY (GAYA HURUF GEN-Z AESTHETIC)
+           ======================================================== */
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-weight: 400;
+            font-size: 3.8rem;
+            letter-spacing: -1px;
+            margin-bottom: 8px;
+            color: #8b5a6c; /* Deep Dusty Rose */
+            text-transform: lowercase; /* Trend huruf kecil semua */
+        }
+
+        .sub-title {
+            font-size: 0.85rem;
+            text-transform: lowercase;
+            letter-spacing: 4px;
+            color: #a6828e;
+            margin-bottom: 40px;
+            font-weight: 500;
+        }
+
+        /* Wadah Penjaga Tinggi agar Layout Tidak Bergeser saat Mengetik */
+        .typing-container {
+            margin-bottom: 40px;
+            height: 28px;
+        }
+        
+        /* Efek Teks Mengetik */
+        .typing-text {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-size: 1.2rem;
+            color: #7d6363;
+            border-right: 2px solid #8b5a6c;
+            white-space: nowrap;
+            overflow: hidden;
+            width: 0;
+            display: inline-block;
+            animation: typing 3s steps(25) forwards, blink 0.75s step-end infinite;
+        }
+
+        @keyframes typing { 
+            from { width: 0; } 
+            to { width: 100%; } 
+        }
+        
+        @keyframes blink { 
+            from, to { border-color: transparent; } 
+            50% { border-color: #8b5a6c; } 
+        }
+        
+        /* ========================================================
+           3. TOMBOL MINIMALIS (OUTLINE STYLE)
+           ======================================================== */
+        .btn {
+            padding: 12px 28px;
+            background-color: transparent;
+            color: #8b5a6c;
+            border: 1px solid #8b5a6c;
+            border-radius: 8px; /* Gaya kotak minimalis modern */
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            background-color: #8b5a6c;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(139, 90, 108, 0.2);
+        }
+
+        /* ========================================================
+           4. ORNAMEN KELOPAK BUNGA BERGUGURAN
+           ======================================================== */
+        .petal {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 150% 0 150% 150%;
+            animation: float 8s infinite linear;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes float {
+            0% { 
+                transform: translateY(-10vh) translateX(0) rotate(0deg); 
+                opacity: 1; 
+            }
+            100% { 
+                transform: translateY(110vh) translateX(80px) rotate(360deg); 
+                opacity: 0; 
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="petal" style="left: 10%; width: 12px; height: 12px; animation-delay: 0s; animation-duration: 9s;"></div>
+    <div class="petal" style="left: 25%; width: 16px; height: 16px; animation-delay: 3s; animation-duration: 11s;"></div>
+    <div class="petal" style="left: 45%; width: 18px; height: 18px; animation-delay: 1s; animation-duration: 10s;"></div>
+    <div class="petal" style="left: 65%; width: 10px; height: 10px; animation-delay: 5s; animation-duration: 8s;"></div>
+    <div class="petal" style="left: 85%; width: 14px; height: 14px; animation-delay: 2s; animation-duration: 12s;"></div>
+
+    <div class="welcome-container">
+        <h1>angga & tsania.</h1>
+        <div class="sub-title">happy anniversary, love.</div>
+        
+        <div class="typing-container">
+            <div class="typing-text">another year down, forever to go... 🤍</div>
+        </div>
+        
+        <button class="btn" onclick="mulaiCerita()">open our story</button>
+    </div>
+
+    <script>
+        function mulaiCerita() {
+            // Mengaktifkan penanda audio di localStorage agar halaman selanjutnya tahu musik harus berputar
+            localStorage.setItem('putarMusik', 'true');
+            localStorage.setItem('waktuMusik', '0');
+            
+            // Berpindah ke file Halaman 2 (galeri.html)
+            window.location.href = 'galeri.html';
+        }
+    </script>
+</body>
+</html>
