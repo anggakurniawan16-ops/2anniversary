@@ -111,7 +111,7 @@
         }
 
         /* ========================================================
-           STRIP FOTO HASIL JEPRETAN (RESPONSIF & PAS DI LAYAR HP)
+           STRIP FOTO HASIL JEPRETAN
            ======================================================== */
         .photostrip-container {
             width: 100%;
@@ -121,7 +121,7 @@
         .photostrip { 
             background-color: #ffffff;
             width: 100%;
-            padding: 20px;
+            padding: 25px;
             box-shadow: 0 25px 50px rgba(139, 90, 108, 0.15);
             border-radius: 2px;
             display: flex;
@@ -130,7 +130,7 @@
 
         .pb-frame { 
             width: 100%; 
-            aspect-ratio: 4 / 3; /* Rasio potret kamera normal */
+            aspect-ratio: 4 / 3; 
             background-color: #f7f5f0;
             margin-bottom: 15px; 
             overflow: hidden;
@@ -264,9 +264,9 @@
         const captureBtn = document.getElementById('captureBtn');
         let fotoCount = 0;
         let isCountingDown = false;
-        let sisaFoto = []; // Menyimpan data gambar mentah
+        let sisaFoto = []; 
 
-        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } })
             .then(stream => {
                 video.srcObject = stream;
             })
@@ -310,25 +310,29 @@
             const currentFrame = document.getElementById(`frame-${fotoCount}`);
             currentFrame.innerHTML = ''; 
 
+            // Mengambil resolusi asli dari stream video yang aktif di HP secara dinamis
+            const activeWidth = video.videoWidth || 640;
+            const activeHeight = video.videoHeight || 480;
+
             const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            canvas.width = activeWidth;
+            canvas.height = activeHeight;
             const ctx = canvas.getContext('2d');
 
-            // Efek mirror pas ambil foto
+            // Proses mirroring yang aman
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            // Tampilkan ke layar HP biar kelihatan
+            // Render ulang khusus untuk peninjauan di layar HP agar tetap aman dilihat
             const displayCanvas = document.createElement('canvas');
-            displayCanvas.width = canvas.width;
-            displayCanvas.height = canvas.height;
+            displayCanvas.width = activeWidth;
+            displayCanvas.height = activeHeight;
             const dCtx = displayCanvas.getContext('2d');
             dCtx.drawImage(canvas, 0, 0);
             currentFrame.appendChild(displayCanvas);
 
-            // Simpan data aslinya ke array memori agar tidak rusak oleh ukuran HP
+            // Menyimpan objek kanvas fisik asli ke memori ram
             sisaFoto.push(canvas);
 
             if (fotoCount < 3) {
@@ -355,7 +359,7 @@
         }
 
         // ========================================================
-        // MODEL BARU: RE-RENDER SECARA MANUAL (ANTI GEPENG DI HP)
+        // LOGIKA PENYUSUNAN BARU: KOMPUTASI PROPORSI MATEMATIS AKTIF
         // ========================================================
         function simpanKeGaleri() {
             if (fotoCount < 3) {
@@ -363,61 +367,74 @@
                 return;
             }
 
-            // Membuat kanvas bayangan dengan resolusi cetak studio yang fixed (lebar 500px, tinggi 1500px)
             const outputCanvas = document.createElement('canvas');
-            outputCanvas.width = 500;
-            outputCanvas.height = 1500;
+            outputCanvas.width = 600;
+            outputCanvas.height = 1800;
             const ctx = outputCanvas.getContext('2d');
 
-            // 1. Gambar Background Putih Bersih
+            // Membuat Background Canvas utama berwarna putih bersih
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
 
-            // 2. Gambar 3 Foto Secara Proporsional Mutlak (Anti-Gepeng)
-            const fotoWidth = 430;  // Lebar foto di strip
-            const fotoHeight = 322; // Tinggi foto (Rasio 4:3)
-            const xXpos = 35;       // Margin kiri kanan agar seimbang di tengah
-            const yPositions = [40, 402, 764]; // Posisi vertikal pas untuk masing-masing foto
+            // Standar Ukuran Slot Foto yang Diinginkan di lembar cetak (Rasio 4:3)
+            const slotWidth = 520;  
+            const slotHeight = 390; 
+            const marginX = 40;     
+            const yPositions = [50, 470, 890]; 
 
             for (let i = 0; i < 3; i++) {
-                const imgMentah = sisaFoto[i];
-                // Menggunakan teknik masking potong object-fit cover secara matematis
-                const hRatio = imgMentah.width / fotoWidth;
-                const vRatio = imgMentah.height / fotoHeight;
-                const ratio  = Math.min(hRatio, vRatio);
-                const sWidth = fotoWidth * ratio;
-                const sHeight = fotoHeight * ratio;
-                const sX = (imgMentah.width - sWidth) / 2;
-                const sY = (imgMentah.height - sHeight) / 2;
+                const fotoMentah = sisaFoto[i];
+                
+                // Menghitung rasio potong object-fit cover secara manual & dinamis berdasarkan orientasi HP
+                const srcWidth = fotoMentah.width;
+                const srcHeight = fotoMentah.height;
+                
+                let cropWidth, cropHeight, cropX, cropY;
+                const targetRatio = slotWidth / slotHeight;
+                const srcRatio = srcWidth / srcHeight;
 
-                ctx.drawImage(imgMentah, sX, sY, sWidth, sHeight, xXpos, yPositions[i], fotoWidth, fotoHeight);
+                if (srcRatio > targetRatio) {
+                    // Jika kamera terlalu lebar (Landscape)
+                    cropHeight = srcHeight;
+                    cropWidth = srcHeight * targetRatio;
+                    cropX = (srcWidth - cropWidth) / 2;
+                    cropY = 0;
+                } else {
+                    // Jika kamera terlalu tinggi (Portrait bawaan HP)
+                    cropWidth = srcWidth;
+                    cropHeight = srcWidth / targetRatio;
+                    cropX = 0;
+                    cropY = (srcHeight - cropHeight) / 2;
+                }
+
+                // Gambar foto ke kanvas menggunakan koordinat potong dinamis yang sudah dihitung
+                ctx.drawImage(fotoMentah, cropX, cropY, cropWidth, cropHeight, marginX, yPositions[i], slotWidth, slotHeight);
             }
 
-            // 3. Gambar Garis Putus-putus Dekorasi Atas Footer
+            // Elemen Dekorasi Garis Putus-putus Atas Footer
             ctx.strokeStyle = "#e8e2d5";
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 6]);
             ctx.beginPath();
-            ctx.moveTo(35, 1130);
-            ctx.lineTo(465, 1130);
+            ctx.moveTo(marginX, 1340);
+            ctx.lineTo(outputCanvas.width - marginX, 1340);
             ctx.stroke();
 
-            // 4. Gambar Teks Custom Nama & Tanggal Langsung Berbasis Vektor HD
-            ctx.setLineDash([]); // Reset garis biasa
+            // Render Teks Identitas Berbasis Koordinat Vektor HD
+            ctx.setLineDash([]); 
             ctx.textAlign = "center";
             
-            // Cetak Nama "angga & tsania"
+            // Nama
             ctx.fillStyle = "#5c4d4d";
-            ctx.font = "italic 36px 'Playfair Display', Georgia, serif";
-            ctx.fillText("angga & tsania", outputCanvas.width / 2, 1220);
+            ctx.font = "italic 42px 'Playfair Display', Georgia, serif";
+            ctx.fillText("angga & tsania", outputCanvas.width / 2, 1440);
 
-            // Cetak Tanggal "19 . 07 . 2024"
+            // Tanggal
             ctx.fillStyle = "#a6828e";
-            ctx.font = "600 18px 'Plus Jakarta Sans', sans-serif";
-            ctx.letterSpacing = "4px"; // Fitur modern browser untuk spasi teks
-            ctx.fillText("19 . 07 . 2024", outputCanvas.width / 2, 1280);
+            ctx.font = "600 20px 'Plus Jakarta Sans', sans-serif";
+            ctx.fillText("19 . 07 . 2024", outputCanvas.width / 2, 1510);
 
-            // 5. Eksekusi Download Otomatis
+            // Download file akhir
             const link = document.createElement('a');
             link.download = 'Angga-Tsania-Photobooth.png';
             link.href = outputCanvas.toDataURL('image/png');
