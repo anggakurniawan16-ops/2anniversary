@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Photobooth | Angga & Tsania</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=400;500;600&family=Playfair+Display:ital,wght=0,400;1,400&display=swap" rel="stylesheet">
 
     <style>
         * { 
@@ -111,53 +111,63 @@
         }
 
         /* ========================================================
-           STRIP FOTO HASIL JEPRETAN (MEMAKAI BACKGROUND BINGKAI CANVA)
+           STRIP FOTO HASIL JEPRETAN (PROPORSIONAL PAS DI HP)
            ======================================================== */
         .photostrip-container {
             width: 100%;
-            max-width: 360px; /* Disesuaikan agar proporsional di HP */
+            max-width: 360px; 
         }
 
         .photostrip { 
-            /* Menggunakan file Canva kamu sebagai background utama */
-            background-image: url('foto1.jpeg'); 
-            background-size: 100% 100%;
-            background-repeat: no-repeat;
-            background-position: center;
+            background-color: #ffffff;
             width: 100%;
-            /* Padding disesuaikan agar letak foto pas di dalam area kosong template */
-            padding: 95px 42px 140px 42px; 
+            padding: 20px 20px 30px 20px;
             box-shadow: 0 25px 50px rgba(139, 90, 108, 0.15);
+            border-radius: 2px;
             display: flex;
             flex-direction: column;
-            gap: 25px; /* Jarak pas antar kotak foto di template */
         }
 
         .pb-frame { 
             width: 100%; 
-            /* Menggunakan aspect-ratio kotak 1:1 murni agar foto TIDAK GEPENG */
-            aspect-ratio: 1.18 / 1; 
-            background-color: rgba(247, 245, 240, 0.9);
+            /* Perbaikan Utama: Memaksa rasio foto potret 4:3 standar kamera agar natural */
+            aspect-ratio: 4 / 3; 
+            background-color: #f7f5f0;
+            margin-bottom: 15px; 
             overflow: hidden;
-            border-radius: 20px; /* Menyesuaikan kelengkungan gelombang Canva */
+            border: 1px solid rgba(0, 0, 0, 0.02);
             display: flex;
             justify-content: center;
             align-items: center;
-            color: #8b5a6c;
+            color: #ccc;
             font-size: 0.8rem;
-            font-weight: bold;
         }
         
-        /* Mengatasi foto gepeng */
         .pb-frame canvas { 
             width: 100% !important; 
             height: 100% !important; 
-            object-fit: cover !important; /* Memotong otomatis sisa kamera secara proporsional */
+            object-fit: cover !important; /* Memotong sisa gambar secara alami tanpa ditarik */
         }
 
-        /* Menghilangkan footer default karena sudah ada bawaan gambar Canva */
         .pb-footer { 
-            display: none;
+            text-align: center;
+            margin-top: 20px;
+            border-top: 1px dashed #e8e2d5;
+            padding-top: 15px;
+        }
+
+        .pb-footer .names {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-size: 1.2rem;
+            color: #5c4d4d;
+            margin-bottom: 4px;
+        }
+
+        .pb-footer .date {
+            font-size: 0.7rem;
+            letter-spacing: 4px;
+            color: #a6828e;
         }
 
         /* ========================================================
@@ -335,6 +345,9 @@
             statusText.innerText = "Siap berpose kembali? (Butuh 3 Foto)";
         }
 
+        // ========================================================
+        // PERBAIKAN UTAMA: MEMAKSA DIMENSI CANVAS OUTPUT TETAP ALAMI
+        // ========================================================
         function simpanKeGaleri() {
             if (fotoCount < 3) {
                 alert("Jepret 3 foto dulu ya sebelum mendownload! 😉");
@@ -342,7 +355,20 @@
             }
 
             const targetStrip = document.getElementById('cetakanFoto');
-            html2canvas(targetStrip, { scale: 2, useCORS: true }).then(canvas => {
+            
+            // Menghitung rasio dimensi nyata elemen
+            const targetWidth = 800; // Standar lebar kanvas unduhan kualitas tinggi (px)
+            const aspectRatio = targetStrip.offsetWidth / targetStrip.offsetHeight;
+            const targetHeight = targetWidth / aspectRatio;
+
+            html2canvas(targetStrip, { 
+                scale: 2, 
+                useCORS: true,
+                width: targetWidth,
+                height: targetHeight,
+                windowWidth: targetStrip.offsetWidth,
+                windowHeight: targetStrip.offsetHeight
+            }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = 'Angga-Tsania-Photobooth.png';
                 link.href = canvas.toDataURL('image/png');
