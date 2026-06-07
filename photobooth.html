@@ -87,14 +87,38 @@
             width: 100%; max-width: 440px;
         }
 
-        /* Live preview = canvas over video */
+        /*
+         * FIX KAMERA HP GEPENG:
+         * video-container pakai aspect-ratio 4/3 dan overflow:hidden.
+         * liveCanvas mengisi penuh container dengan object-fit:cover behaviour
+         * melalui width/height 100% + position absolute.
+         * video disembunyikan (opacity:0) karena kita gambar ke canvas.
+         */
         .video-container {
             position: relative; width: 100%; aspect-ratio: 4/3;
             border-radius: 12px; overflow: hidden; background: #111;
         }
-        #webcam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: 0; pointer-events: none; }
-        #liveCanvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
-        #ornamentCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; border-radius: 12px; }
+        #webcam {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover; /* kunci agar tidak gepeng */
+            transform: scaleX(-1);
+            opacity: 0; /* disembunyikan, kita pakai canvas */
+            pointer-events: none;
+        }
+        /* Canvas live: ukurannya selalu sama dengan container via CSS,
+           konten di dalamnya di-crop pakai drawImage dengan perhitungan cover */
+        #liveCanvas {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            border-radius: 12px;
+            /* TIDAK pakai CSS filter di sini — filter diterapkan saat drawImage */
+        }
+        #ornamentCanvas {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; border-radius: 12px;
+        }
 
         .timer-overlay {
             position: absolute; inset: 0; display: flex; justify-content: center; align-items: center;
@@ -138,7 +162,13 @@
             display: flex; justify-content: center; align-items: center;
             color: #bbb; font-size: 0.72rem; font-style: italic; position: relative;
         }
-        .pb-frame canvas { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block; }
+        /* Canvas dalam frame: isi penuh dengan cover behaviour */
+        .pb-frame canvas {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            display: block;
+        }
 
         .pb-footer { text-align: center; margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(183,110,121,0.2); }
         .pb-footer .names { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1.1rem; color: var(--text-dark); margin-bottom: 3px; }
@@ -205,9 +235,7 @@
         <div class="camera-box">
             <div class="video-container" id="videoContainer">
                 <video id="webcam" autoplay playsinline muted></video>
-                <!-- Live filter output -->
                 <canvas id="liveCanvas"></canvas>
-                <!-- Ornament overlay on live view -->
                 <canvas id="ornamentCanvas"></canvas>
                 <div id="timerOverlay" class="timer-overlay">3</div>
                 <div id="flashEl" class="flash-el"></div>
@@ -267,10 +295,16 @@
 
     /* ═══════════════════════════════════════════════════════
        SETUP KAMERA & CANVAS
+
+       FIX UTAMA KAMERA HP GEPENG:
+       - Canvas internal (W x H) adalah resolusi sumber.
+       - saat drawImage, kita hitung cover crop manual supaya
+         video tidak terdistorsi walau rasio kamera ≠ 4:3.
+       - CSS canvas: width/height 100% agar mengisi kontainer.
     ════════════════════════════════════════════════════════ */
     const video        = document.getElementById('webcam');
     const liveCanvas   = document.getElementById('liveCanvas');
-    const liveCtx      = liveCanvas.getContext('2d');
+    const liveCtx      = liveCanvas.getContext('2d', { willReadFrequently: true });
     const ornCanvas    = document.getElementById('ornamentCanvas');
     const ornCtx       = ornCanvas.getContext('2d');
     const statusText   = document.getElementById('statusText');
@@ -281,41 +315,88 @@
     const filterBadge  = document.getElementById('filterBadge');
 
     let fotoCount = 0, isCountingDown = false;
-    let sisaFoto = [];      // simpan canvas mentah hasil jepret
+    let sisaFoto = [];
     let currentFilter = 'normal';
-    let animFrameId;
+    let animFrameId = null;
 
-    // Ukuran internal canvas
+    // Resolusi internal canvas (output 4:3)
     const W = 640, H = 480;
     liveCanvas.width = ornCanvas.width = W;
     liveCanvas.height = ornCanvas.height = H;
 
-    navigator.mediaDevices.getUserMedia({ video: { width:{ideal:640}, height:{ideal:480} }, audio: false })
-        .then(stream => {
-            video.srcObject = stream;
-            video.onloadedmetadata = () => { video.play(); startLiveLoop(); };
-        })
-        .catch(() => { statusText.innerText = "Gagal memuat kamera. Izinkan akses webcam!"; });
+    // Variabel untuk menyimpan crop region video → cover 4:3
+    let cropX = 0, cropY = 0, cropW = 0, cropH = 0;
+
+    function calcCoverCrop() {
+        /*
+         * Hitung sx, sy, sw, sh dari video agar hasil drawImage
+         * mengisi canvas W×H tanpa distorsi (cover crop).
+         */
+        const vW = video.videoWidth  || W;
+        const vH = video.videoHeight || H;
+        const targetRatio = W / H;   // 4/3
+        const sourceRatio = vW / vH;
+
+        if (sourceRatio > targetRatio) {
+            // Video lebih lebar → crop kiri-kanan
+            cropH = vH;
+            cropW = vH * targetRatio;
+            cropX = (vW - cropW) / 2;
+            cropY = 0;
+        } else {
+            // Video lebih tinggi → crop atas-bawah
+            cropW = vW;
+            cropH = vW / targetRatio;
+            cropX = 0;
+            cropY = (vH - cropH) / 2;
+        }
+    }
+
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: 'user',    // kamera depan di HP
+            width:  { ideal: 1280 },
+            height: { ideal: 720  }
+        },
+        audio: false
+    })
+    .then(stream => {
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+            video.play();
+            calcCoverCrop();  // hitung crop setelah metadata siap
+            startLiveLoop();
+        };
+    })
+    .catch(() => {
+        statusText.innerText = "Gagal memuat kamera. Izinkan akses webcam!";
+    });
 
     /* ═══════════════════════════════════════════════════════
-       LIVE LOOP — gambar video ke canvas + filter + ornamen
+       LIVE LOOP
+
+       FIX FILTER BUG:
+       - Hapus penggunaan CSS filter pada liveCanvas (penyebab konflik).
+       - Semua filter diterapkan murni via pixel data (applyPixelFilter).
+       - Ini memastikan hasil di canvas = hasil yang di-snapshot.
+       - drawImage pakai crop cover agar gambar HP tidak gepeng.
     ════════════════════════════════════════════════════════ */
     function startLiveLoop() {
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+
         function loop() {
-            if (video.readyState >= 2) {
-                // 1. Flip horizontal (mirror selfie)
+            if (video.readyState >= 2 && cropW > 0) {
+                // 1. Flip horizontal (mirror selfie) + crop cover
                 liveCtx.save();
-                liveCtx.translate(W, 0); liveCtx.scale(-1, 1);
-                liveCtx.drawImage(video, 0, 0, W, H);
+                liveCtx.translate(W, 0);
+                liveCtx.scale(-1, 1);
+                liveCtx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, W, H);
                 liveCtx.restore();
 
-                // 2. Apply pixel filter
+                // 2. Apply pixel filter (satu-satunya cara — tidak ada CSS filter)
                 applyPixelFilter(liveCtx, W, H, currentFilter);
 
-                // 3. Apply CSS-filter overlay (cepat, no pixel loop)
-                liveCanvas.style.filter = getCSSFilter(currentFilter);
-
-                // 4. Draw ornaments
+                // 3. Apply ornaments di canvas terpisah
                 drawOrnaments(ornCtx, W, H, currentFilter);
             }
             animFrameId = requestAnimationFrame(loop);
@@ -324,52 +405,64 @@
     }
 
     /* ═══════════════════════════════════════════════════════
-       PIXEL FILTER (diterapkan pada pixel data)
+       PIXEL FILTER
+       - PERBAIKAN: CSS filter dihapus total.
+       - Semua efek visual diterapkan di pixel data agar
+         hasil live = hasil snapshot = hasil download.
     ════════════════════════════════════════════════════════ */
     function applyPixelFilter(ctx, w, h, filter) {
-        if (filter === 'normal') return;
+        if (filter === 'normal') return; // tidak ada perubahan
+
         const id = ctx.getImageData(0, 0, w, h);
         const d  = id.data;
+
         for (let i = 0; i < d.length; i += 4) {
-            let r=d[i], g=d[i+1], b=d[i+2];
+            let r = d[i], g = d[i+1], b = d[i+2];
+
             if (filter === 'warm') {
-                r = Math.min(255, r*1.12+8); g = Math.min(255, g*1.02); b = Math.max(0, b*0.82);
+                // Hangat: naikkan merah, turunkan biru, sedikit naikkan saturasi
+                r = Math.min(255, r * 1.15 + 10);
+                g = Math.min(255, g * 1.03);
+                b = Math.max(0,   b * 0.80);
+
             } else if (filter === 'bw') {
-                const gray = 0.299*r+0.587*g+0.114*b; r=g=b=gray;
+                // Hitam putih dengan sedikit contrast
+                const lum = 0.299*r + 0.587*g + 0.114*b;
+                const c = Math.min(255, Math.max(0, (lum - 128) * 1.12 + 128));
+                r = g = b = c;
+
             } else if (filter === 'vintage') {
-                r = Math.min(255, r*1.06+22); g = Math.min(255, g*0.94+8); b = Math.max(0, b*0.76+10);
-                // Slight noise
-                const noise = (Math.random()-0.5)*18;
-                r = Math.min(255,Math.max(0,r+noise));
-                g = Math.min(255,Math.max(0,g+noise));
-                b = Math.min(255,Math.max(0,b+noise));
+                // Vintage: sepia + sedikit noise + vignette via gradient
+                const lum = 0.299*r + 0.587*g + 0.114*b;
+                r = Math.min(255, lum * 1.08 + 22);
+                g = Math.min(255, lum * 0.95 + 10);
+                b = Math.max(0,   lum * 0.78 + 8);
+                const noise = (Math.random() - 0.5) * 14;
+                r = Math.min(255, Math.max(0, r + noise));
+                g = Math.min(255, Math.max(0, g + noise));
+                b = Math.min(255, Math.max(0, b + noise));
+
             } else if (filter === 'pink') {
-                r = Math.min(255, r*1.05+28); g = Math.min(255, g*0.92+10); b = Math.min(255, b*1.08+20);
+                // Pink: naikkan merah & biru, turunkan hijau
+                r = Math.min(255, r * 1.08 + 30);
+                g = Math.min(255, g * 0.88 + 8);
+                b = Math.min(255, b * 1.12 + 22);
+
             } else if (filter === 'dreamy') {
-                r = Math.min(255, r*0.85+40); g = Math.min(255, g*0.85+30); b = Math.min(255, b*1.1+40);
+                // Dreamy: soft blur effect via pixel, warna dingin lavender
+                r = Math.min(255, r * 0.82 + 42);
+                g = Math.min(255, g * 0.82 + 32);
+                b = Math.min(255, b * 1.12 + 42);
             }
-            d[i]=r; d[i+1]=g; d[i+2]=b;
+
+            d[i] = r; d[i+1] = g; d[i+2] = b;
         }
         ctx.putImageData(id, 0, 0);
     }
 
-    /* CSS filter untuk tampilan cepat (tidak mengubah pixel data) */
-    function getCSSFilter(filter) {
-        const map = {
-            normal:  'none',
-            warm:    'saturate(1.15) brightness(1.05)',
-            bw:      'grayscale(1) contrast(1.1)',
-            vintage: 'sepia(0.35) contrast(1.05) brightness(0.95)',
-            pink:    'hue-rotate(-15deg) saturate(1.2) brightness(1.05)',
-            dreamy:  'brightness(1.08) saturate(0.85) blur(0.6px)',
-        };
-        return map[filter] || 'none';
-    }
-
     /* ═══════════════════════════════════════════════════════
-       ORNAMEN PER FILTER — digambar di canvas transparan di atas video
+       ORNAMEN PER FILTER
     ════════════════════════════════════════════════════════ */
-    // Particle system untuk dreamy
     const particles = Array.from({length:18}, () => ({
         x: Math.random()*640, y: Math.random()*480,
         r: 1+Math.random()*2.5, speed: 0.3+Math.random()*0.7, dx: (Math.random()-0.5)*0.6
@@ -379,163 +472,110 @@
         ctx.clearRect(0, 0, w, h);
 
         if (filter === 'normal') {
-            // Corner hearts
             drawHeart(ctx, 18, 18, 10, 'rgba(255,160,180,0.55)');
             drawHeart(ctx, w-18, 18, 10, 'rgba(255,160,180,0.55)');
             drawHeart(ctx, 18, h-18, 10, 'rgba(255,160,180,0.55)');
             drawHeart(ctx, w-18, h-18, 10, 'rgba(255,160,180,0.55)');
-            // Thin border
-            ctx.strokeStyle = 'rgba(255,182,193,0.4)';
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(255,182,193,0.4)'; ctx.lineWidth = 3;
             ctx.strokeRect(8, 8, w-16, h-16);
         }
-
         else if (filter === 'warm') {
-            // Sun rays + warm corner frames
             drawSunRays(ctx, w, h);
-            // Corner bracket gold
             drawCornerBrackets(ctx, w, h, 'rgba(255,200,80,0.6)', 30);
-            // Stars scattered
-            for (let i=0; i<6; i++) {
-                drawStar(ctx, 40+i*90, 30, 7, 'rgba(255,210,80,0.7)');
-            }
+            for (let i=0; i<6; i++) drawStar(ctx, 40+i*90, 30, 7, 'rgba(255,210,80,0.7)');
         }
-
         else if (filter === 'bw') {
-            // Newspaper / film border
-            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-            ctx.lineWidth = 4;
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 4;
             ctx.strokeRect(10, 10, w-20, h-20);
-            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
             ctx.strokeRect(18, 18, w-36, h-36);
-            // Film sprocket holes
             drawFilmHoles(ctx, w, h);
         }
-
         else if (filter === 'vintage') {
-            // Vignette
             drawVignette(ctx, w, h, 'rgba(60,20,0,0.38)');
-            // Ornate corner scrolls
             drawVintageCorners(ctx, w, h);
-            // Thin double border
-            ctx.strokeStyle = 'rgba(200,160,80,0.5)';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(200,160,80,0.5)'; ctx.lineWidth = 2;
             ctx.strokeRect(12, 12, w-24, h-24);
-            ctx.strokeStyle = 'rgba(200,160,80,0.25)';
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(200,160,80,0.25)'; ctx.lineWidth = 1;
             ctx.strokeRect(18, 18, w-36, h-36);
         }
-
         else if (filter === 'pink') {
-            // Floating flowers / sakura
             drawSakura(ctx, w, h);
-            // Double round border
-            ctx.strokeStyle = 'rgba(255,140,180,0.55)';
-            ctx.lineWidth = 3;
-            roundRect(ctx, 8, 8, w-16, h-16, 16);
-            ctx.stroke();
-            // Corner bows
+            ctx.strokeStyle = 'rgba(255,140,180,0.55)'; ctx.lineWidth = 3;
+            roundRect(ctx, 8, 8, w-16, h-16, 16); ctx.stroke();
             drawBow(ctx, 16, 16, 'rgba(255,120,160,0.7)');
             drawBow(ctx, w-16, 16, 'rgba(255,120,160,0.7)', true);
             drawBow(ctx, 16, h-16, 'rgba(255,120,160,0.7)', false, true);
             drawBow(ctx, w-16, h-16, 'rgba(255,120,160,0.7)', true, true);
         }
-
         else if (filter === 'dreamy') {
-            // Floating sparkle particles
             particles.forEach(p => {
                 p.y -= p.speed; p.x += p.dx;
                 if (p.y < -10) { p.y = h+10; p.x = Math.random()*w; }
                 drawSparkle(ctx, p.x, p.y, p.r, 'rgba(180,160,255,0.8)');
             });
-            // Soft glow border
             const grad = ctx.createLinearGradient(0,0,w,h);
             grad.addColorStop(0,'rgba(180,140,255,0.3)');
             grad.addColorStop(0.5,'rgba(255,180,240,0.1)');
             grad.addColorStop(1,'rgba(140,200,255,0.3)');
-            ctx.strokeStyle = grad;
-            ctx.lineWidth = 5;
+            ctx.strokeStyle = grad; ctx.lineWidth = 5;
             ctx.strokeRect(6, 6, w-12, h-12);
-            // Moon deco
             drawMoon(ctx, w-30, 30, 14, 'rgba(220,200,255,0.7)');
         }
     }
 
     /* ── Drawing helpers ── */
-
     function drawHeart(ctx, x, y, size, color) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.fillStyle = color;
+        ctx.save(); ctx.translate(x, y); ctx.fillStyle = color;
         ctx.beginPath();
         ctx.moveTo(0, -size*0.3);
         ctx.bezierCurveTo(size*0.5, -size, size*1.0, -size*0.2, 0, size*0.7);
         ctx.bezierCurveTo(-size*1.0, -size*0.2, -size*0.5, -size, 0, -size*0.3);
-        ctx.fill();
-        ctx.restore();
+        ctx.fill(); ctx.restore();
     }
-
     function drawSunRays(ctx, w, h) {
-        const cx=w/2, cy=h/2;
-        ctx.save();
+        const cx=w/2, cy=h/2; ctx.save();
         for (let i=0; i<12; i++) {
-            const angle = (i/12)*Math.PI*2;
-            const grad = ctx.createLinearGradient(cx,cy, cx+Math.cos(angle)*w, cy+Math.sin(angle)*h);
-            grad.addColorStop(0,'rgba(255,200,50,0)');
-            grad.addColorStop(1,'rgba(255,200,50,0.06)');
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.moveTo(cx,cy);
-            const a1=angle-0.13, a2=angle+0.13, len=Math.max(w,h)*1.5;
-            ctx.lineTo(cx+Math.cos(a1)*len, cy+Math.sin(a1)*len);
-            ctx.lineTo(cx+Math.cos(a2)*len, cy+Math.sin(a2)*len);
+            const angle=(i/12)*Math.PI*2;
+            const grad=ctx.createLinearGradient(cx,cy,cx+Math.cos(angle)*w,cy+Math.sin(angle)*h);
+            grad.addColorStop(0,'rgba(255,200,50,0)'); grad.addColorStop(1,'rgba(255,200,50,0.06)');
+            ctx.fillStyle=grad; ctx.beginPath(); ctx.moveTo(cx,cy);
+            const a1=angle-0.13,a2=angle+0.13,len=Math.max(w,h)*1.5;
+            ctx.lineTo(cx+Math.cos(a1)*len,cy+Math.sin(a1)*len);
+            ctx.lineTo(cx+Math.cos(a2)*len,cy+Math.sin(a2)*len);
             ctx.closePath(); ctx.fill();
         }
         ctx.restore();
     }
-
     function drawCornerBrackets(ctx, w, h, color, size) {
-        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round';
-        const pads = [[12,12],[w-12,12],[12,h-12],[w-12,h-12]];
-        const dirs = [[1,1],[-1,1],[1,-1],[-1,-1]];
-        pads.forEach(([x,y],[dx,dy]) => {
+        ctx.strokeStyle=color; ctx.lineWidth=3; ctx.lineCap='round';
+        [[12,12,1,1],[w-12,12,-1,1],[12,h-12,1,-1],[w-12,h-12,-1,-1]].forEach(([x,y,dx,dy]) => {
             ctx.beginPath(); ctx.moveTo(x,y+dy*size); ctx.lineTo(x,y); ctx.lineTo(x+dx*size,y); ctx.stroke();
         });
     }
-
     function drawStar(ctx, x, y, r, color) {
-        ctx.save(); ctx.translate(x,y); ctx.fillStyle = color;
-        ctx.beginPath();
-        for (let i=0; i<5; i++) {
-            const a = (i*4*Math.PI/5)-Math.PI/2;
-            const ai = ((i*4+2)*Math.PI/5)-Math.PI/2;
-            i===0 ? ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r) : ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
-            ctx.lineTo(Math.cos(ai)*r*0.45, Math.sin(ai)*r*0.45);
+        ctx.save(); ctx.translate(x,y); ctx.fillStyle=color; ctx.beginPath();
+        for (let i=0;i<5;i++) {
+            const a=(i*4*Math.PI/5)-Math.PI/2, ai=((i*4+2)*Math.PI/5)-Math.PI/2;
+            i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r):ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+            ctx.lineTo(Math.cos(ai)*r*0.45,Math.sin(ai)*r*0.45);
         }
         ctx.closePath(); ctx.fill(); ctx.restore();
     }
-
     function drawFilmHoles(ctx, w, h) {
-        ctx.fillStyle = 'rgba(255,255,255,0.55)';
-        const holeR=7, gap=28;
-        for (let y=gap; y<h; y+=gap) {
-            ctx.beginPath(); ctx.arc(8, y, holeR*0.5, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(w-8, y, holeR*0.5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,0.55)';
+        for (let y=28;y<h;y+=28) {
+            ctx.beginPath(); ctx.arc(8,y,3.5,0,Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(w-8,y,3.5,0,Math.PI*2); ctx.fill();
         }
     }
-
     function drawVignette(ctx, w, h, color) {
-        const grad = ctx.createRadialGradient(w/2,h/2,h*0.3, w/2,h/2,h*0.85);
-        grad.addColorStop(0,'rgba(0,0,0,0)');
-        grad.addColorStop(1,color);
-        ctx.fillStyle = grad; ctx.fillRect(0,0,w,h);
+        const grad=ctx.createRadialGradient(w/2,h/2,h*0.3,w/2,h/2,h*0.85);
+        grad.addColorStop(0,'rgba(0,0,0,0)'); grad.addColorStop(1,color);
+        ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
     }
-
     function drawVintageCorners(ctx, w, h) {
-        const c = 'rgba(200,160,70,0.65)';
-        ctx.strokeStyle = c; ctx.lineWidth = 1.5;
-        // Each corner: small flourish
+        ctx.strokeStyle='rgba(200,160,70,0.65)'; ctx.lineWidth=1.5;
         [[14,14,1,1],[w-14,14,-1,1],[14,h-14,1,-1],[w-14,h-14,-1,-1]].forEach(([x,y,dx,dy]) => {
             ctx.beginPath();
             ctx.arc(x,y,14,dy>0?(dx>0?Math.PI:Math.PI/2):(dx>0?-Math.PI/2:0),
@@ -544,38 +584,34 @@
             ctx.beginPath(); ctx.moveTo(x,y+dy*18); ctx.lineTo(x,y); ctx.lineTo(x+dx*18,y); ctx.stroke();
         });
     }
-
-    // Sakura petals for pink filter
     const sakuraArr = Array.from({length:14}, () => ({
-        x: Math.random()*640, y: Math.random()*480,
-        r: 5+Math.random()*8, angle: Math.random()*Math.PI*2,
-        speed: 0.4+Math.random()*0.6, drift: (Math.random()-0.5)*0.8, spin: (Math.random()-0.5)*0.04
+        x:Math.random()*640, y:Math.random()*480, r:5+Math.random()*8,
+        angle:Math.random()*Math.PI*2, speed:0.4+Math.random()*0.6,
+        drift:(Math.random()-0.5)*0.8, spin:(Math.random()-0.5)*0.04
     }));
     function drawSakura(ctx, w, h) {
         sakuraArr.forEach(p => {
-            p.y += p.speed; p.x += p.drift; p.angle += p.spin;
-            if (p.y > h+20) { p.y = -20; p.x = Math.random()*w; }
-            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle);
-            ctx.fillStyle = 'rgba(255,160,190,0.65)';
-            for (let i=0; i<5; i++) {
+            p.y+=p.speed; p.x+=p.drift; p.angle+=p.spin;
+            if(p.y>h+20){p.y=-20;p.x=Math.random()*w;}
+            ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.angle);
+            ctx.fillStyle='rgba(255,160,190,0.65)';
+            for(let i=0;i<5;i++){
                 ctx.save(); ctx.rotate((i/5)*Math.PI*2);
-                ctx.beginPath(); ctx.ellipse(0,-p.r*0.6, p.r*0.4, p.r*0.7, 0, 0, Math.PI*2);
+                ctx.beginPath(); ctx.ellipse(0,-p.r*0.6,p.r*0.4,p.r*0.7,0,0,Math.PI*2);
                 ctx.fill(); ctx.restore();
             }
             ctx.restore();
         });
     }
-
     function drawBow(ctx, x, y, color, flipX=false, flipY=false) {
         ctx.save(); ctx.translate(x,y);
-        if (flipX) ctx.scale(-1,1); if (flipY) ctx.scale(1,-1);
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.ellipse(-8,-6,10,6, Math.PI/5, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(8,-6,10,6,-Math.PI/5, 0, Math.PI*2); ctx.fill();
+        if(flipX)ctx.scale(-1,1); if(flipY)ctx.scale(1,-1);
+        ctx.fillStyle=color;
+        ctx.beginPath(); ctx.ellipse(-8,-6,10,6,Math.PI/5,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(8,-6,10,6,-Math.PI/5,0,Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fill();
         ctx.restore();
     }
-
     function roundRect(ctx, x, y, w, h, r) {
         ctx.beginPath();
         ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
@@ -583,47 +619,46 @@
         ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
         ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
     }
-
     function drawSparkle(ctx, x, y, r, color) {
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-        // Cross glow
-        ctx.strokeStyle = color; ctx.lineWidth = r*0.6; ctx.lineCap='round';
+        ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle=color; ctx.lineWidth=r*0.6; ctx.lineCap='round';
         ctx.beginPath(); ctx.moveTo(x-r*2.5,y); ctx.lineTo(x+r*2.5,y); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x,y-r*2.5); ctx.lineTo(x,y+r*2.5); ctx.stroke();
     }
-
     function drawMoon(ctx, x, y, r, color) {
-        ctx.save(); ctx.translate(x,y);
-        ctx.fillStyle = color;
+        ctx.save(); ctx.translate(x,y); ctx.fillStyle=color;
         ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
-        ctx.arc(-r*0.4,-r*0.1,r*0.82,0,Math.PI*2,true); // cutout
+        ctx.arc(-r*0.4,-r*0.1,r*0.82,0,Math.PI*2,true);
         ctx.fill(); ctx.restore();
     }
 
     /* ═══════════════════════════════════════════════════════
        FILTER SELECTION
+       FIX: tidak ada lagi CSS filter — hanya update currentFilter
+       dan biarkan live loop handle sisanya.
     ════════════════════════════════════════════════════════ */
     const filterNames = {
-        normal:'✨ Normal', warm:'🌅 Warm', bw:'🖤 B&W', vintage:'📷 Vintage', pink:'🌸 Pink', dreamy:'🌙 Dreamy'
+        normal:'✨ Normal', warm:'🌅 Warm', bw:'🖤 B&W',
+        vintage:'📷 Vintage', pink:'🌸 Pink', dreamy:'🌙 Dreamy'
     };
     function setFilter(filter, el) {
         currentFilter = filter;
-        document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
         el.classList.add('active');
         filterBadge.textContent = filterNames[filter] || filter;
-        // Reset CSS filter on canvas (akan di-set di loop)
+        // Tidak perlu restart loop — loop sudah jalan terus,
+        // currentFilter akan dipakai di iterasi berikutnya.
     }
 
     /* ═══════════════════════════════════════════════════════
        PROGRESS DOTS
     ════════════════════════════════════════════════════════ */
     function updateDots() {
-        for (let i=1;i<=3;i++) {
-            const d=document.getElementById(`dot-${i}`);
-            d.className='dot';
-            if (i<=fotoCount) d.classList.add('filled');
-            else if (i===fotoCount+1&&fotoCount<3) d.classList.add('active');
+        for (let i=1; i<=3; i++) {
+            const d = document.getElementById(`dot-${i}`);
+            d.className = 'dot';
+            if (i <= fotoCount) d.classList.add('filled');
+            else if (i === fotoCount+1 && fotoCount < 3) d.classList.add('active');
         }
     }
     updateDots();
@@ -632,53 +667,69 @@
        COUNTDOWN & CAPTURE
     ════════════════════════════════════════════════════════ */
     function mulaiCountdown() {
-        if (fotoCount>=3){ statusText.innerText="Strip sudah penuh! Reset untuk mengulang."; return; }
+        if (fotoCount >= 3) { statusText.innerText = "Strip sudah penuh! Reset untuk mengulang."; return; }
         if (isCountingDown) return;
-        isCountingDown=true; captureBtn.disabled=true; if(undoBtn) undoBtn.disabled=true;
-        let tl=3;
-        timerOverlay.innerText=tl; timerOverlay.style.opacity='1';
-        statusText.innerText=`Bersiap dalam... ${tl}`;
-        const iv=setInterval(()=>{
+        isCountingDown = true; captureBtn.disabled = true;
+        if (undoBtn) undoBtn.disabled = true;
+
+        let tl = 3;
+        timerOverlay.innerText = tl; timerOverlay.style.opacity = '1';
+        statusText.innerText = `Bersiap dalam... ${tl}`;
+
+        const iv = setInterval(() => {
             tl--;
-            if(tl>0){ timerOverlay.innerText=tl; statusText.innerText=`Bersiap dalam... ${tl}`; }
-            else { clearInterval(iv); timerOverlay.style.opacity='0'; isCountingDown=false; ambilFoto(); }
-        },1000);
+            if (tl > 0) {
+                timerOverlay.innerText = tl;
+                statusText.innerText = `Bersiap dalam... ${tl}`;
+            } else {
+                clearInterval(iv);
+                timerOverlay.style.opacity = '0';
+                isCountingDown = false;
+                ambilFoto();
+            }
+        }, 1000);
     }
 
     function flash() {
-        flashEl.style.transition='none'; flashEl.style.opacity='1';
-        setTimeout(()=>{ flashEl.style.transition='opacity 0.6s ease'; flashEl.style.opacity='0'; },60);
+        flashEl.style.transition = 'none'; flashEl.style.opacity = '1';
+        setTimeout(() => { flashEl.style.transition = 'opacity 0.6s ease'; flashEl.style.opacity = '0'; }, 60);
     }
 
     function ambilFoto() {
         flash();
         fotoCount++;
-        const frame=document.getElementById(`frame-${fotoCount}`);
-        frame.innerHTML='';
+        const frame = document.getElementById(`frame-${fotoCount}`);
+        frame.innerHTML = '';
 
-        // Salin dari liveCanvas (sudah terfilter) + ornamen
-        const snap=document.createElement('canvas');
-        snap.width=W; snap.height=H;
-        const sCtx=snap.getContext('2d');
-        sCtx.drawImage(liveCanvas,0,0);      // filtered video
-        sCtx.drawImage(ornCanvas,0,0);        // ornaments
+        /*
+         * Snapshot: salin liveCanvas (sudah terfilter) + ornamen
+         * ke canvas baru berukuran W×H (full res).
+         */
+        const snap = document.createElement('canvas');
+        snap.width = W; snap.height = H;
+        const sCtx = snap.getContext('2d');
+        sCtx.drawImage(liveCanvas, 0, 0);
+        sCtx.drawImage(ornCanvas, 0, 0);
 
-        // Display di strip (preview kecil)
-        const disp=document.createElement('canvas');
-        disp.width=W; disp.height=H;
-        disp.getContext('2d').drawImage(snap,0,0);
+        /*
+         * Preview di strip: buat canvas display yang mengisi
+         * pb-frame (aspect 4:3) — karena snap juga 4:3, tidak ada distorsi.
+         */
+        const disp = document.createElement('canvas');
+        disp.width = W; disp.height = H;
+        disp.getContext('2d').drawImage(snap, 0, 0);
         frame.appendChild(disp);
 
         sisaFoto.push(snap);
-        undoBtn.style.display='inline-block'; undoBtn.disabled=false;
+        undoBtn.style.display = 'inline-block'; undoBtn.disabled = false;
         updateDots();
 
-        if (fotoCount<3){
-            statusText.innerText=`Foto ${fotoCount} ✓ — Ambil foto ${fotoCount+1}!`;
-            captureBtn.disabled=false;
+        if (fotoCount < 3) {
+            statusText.innerText = `Foto ${fotoCount} ✓ — Ambil foto ${fotoCount+1}!`;
+            captureBtn.disabled = false;
         } else {
-            statusText.innerText="Yaaay! Strip foto kamu sudah jadi 🎉";
-            captureBtn.disabled=true;
+            statusText.innerText = "Yaaay! Strip foto kamu sudah jadi 🎉";
+            captureBtn.disabled = true;
         }
     }
 
@@ -686,67 +737,63 @@
        UNDO / RESET
     ════════════════════════════════════════════════════════ */
     function undoFotoLast() {
-        if(isCountingDown||fotoCount===0) return;
-        document.getElementById(`frame-${fotoCount}`).innerHTML=`slot foto ${fotoCount}`;
+        if (isCountingDown || fotoCount === 0) return;
+        document.getElementById(`frame-${fotoCount}`).innerHTML = `slot foto ${fotoCount}`;
         sisaFoto.pop(); fotoCount--;
-        undoBtn.style.display=fotoCount===0?'none':'inline-block';
-        statusText.innerText=fotoCount===0?'Siap berpose? (Butuh 3 foto)':`Foto dihapus. Ambil ulang foto ke-${fotoCount+1}!`;
-        captureBtn.disabled=false; updateDots();
+        undoBtn.style.display = fotoCount === 0 ? 'none' : 'inline-block';
+        statusText.innerText = fotoCount === 0
+            ? 'Siap berpose? (Butuh 3 foto)'
+            : `Foto dihapus. Ambil ulang foto ke-${fotoCount+1}!`;
+        captureBtn.disabled = false; updateDots();
     }
 
     function resetFoto() {
-        if(isCountingDown) return;
-        fotoCount=0; sisaFoto=[];
-        for(let i=1;i<=3;i++) document.getElementById(`frame-${i}`).innerHTML=`slot foto ${i}`;
-        captureBtn.disabled=false; undoBtn.style.display='none';
-        statusText.innerText='Siap berpose kembali? (Butuh 3 foto)'; updateDots();
+        if (isCountingDown) return;
+        fotoCount = 0; sisaFoto = [];
+        for (let i=1; i<=3; i++) document.getElementById(`frame-${i}`).innerHTML = `slot foto ${i}`;
+        captureBtn.disabled = false; undoBtn.style.display = 'none';
+        statusText.innerText = 'Siap berpose kembali? (Butuh 3 foto)'; updateDots();
     }
 
     /* ═══════════════════════════════════════════════════════
-       DOWNLOAD
+       DOWNLOAD — composite 3 foto ke satu strip PNG
     ════════════════════════════════════════════════════════ */
     function simpanKeGaleri() {
-        if(fotoCount<3){ alert("Jepret 3 foto dulu ya! 😉"); return; }
-        const out=document.createElement('canvas');
-        out.width=600; out.height=1460;
-        const ctx=out.getContext('2d');
-        ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,600,1460);
+        if (fotoCount < 3) { alert("Jepret 3 foto dulu ya! 😉"); return; }
+
+        const out = document.createElement('canvas');
+        out.width = 600; out.height = 1460;
+        const ctx = out.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 600, 1460);
 
         const sW=520, sH=390, mX=40;
-        const yPos=[50,480,910];
-        const tRatio=sW/sH;
+        const yPos = [50, 480, 910];
 
-        for(let i=0;i<3;i++){
-            const src=sisaFoto[i];
-            const sRatio=src.width/src.height;
-            let cW,cH,cX=0,cY=0;
-            if(sRatio>tRatio){ cH=src.height; cW=cH*tRatio; cX=(src.width-cW)/2; }
-            else              { cW=src.width;  cH=cW/tRatio; cY=(src.height-cH)/2; }
-            ctx.drawImage(src,cX,cY,cW,cH,mX,yPos[i],sW,sH);
+        for (let i=0; i<3; i++) {
+            // sisaFoto[i] sudah 4:3 (W×H), target juga 4:3 (sW×sH) → no crop needed
+            ctx.drawImage(sisaFoto[i], 0, 0, W, H, mX, yPos[i], sW, sH);
         }
 
-        // Dashed divider
-        ctx.strokeStyle='rgba(183,110,121,0.2)'; ctx.lineWidth=2; ctx.setLineDash([8,6]);
+        ctx.strokeStyle = 'rgba(183,110,121,0.2)'; ctx.lineWidth = 2; ctx.setLineDash([8,6]);
         ctx.beginPath(); ctx.moveTo(40,1330); ctx.lineTo(560,1330); ctx.stroke();
         ctx.setLineDash([]);
 
-        // Footer text
-        ctx.textAlign='center';
-        ctx.fillStyle='#3d2c2c'; ctx.font="italic 300 42px Georgia,serif";
-        ctx.fillText('Angga & Tsania',300,1392);
-        ctx.fillStyle='#b76e79'; ctx.font="500 16px Arial,sans-serif";
-        ctx.fillText('19  ·  07  ·  2024',300,1428);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#3d2c2c'; ctx.font = "italic 300 42px Georgia,serif";
+        ctx.fillText('Angga & Tsania', 300, 1392);
+        ctx.fillStyle = '#b76e79'; ctx.font = "500 16px Arial,sans-serif";
+        ctx.fillText('19  ·  07  ·  2024', 300, 1428);
 
-        const link=document.createElement('a');
-        link.download='Angga-Tsania-Photobooth.png';
-        link.href=out.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = 'Angga-Tsania-Photobooth.png';
+        link.href = out.toDataURL('image/png');
         link.click();
     }
 
     function kembali() {
         sessionStorage.setItem('musikWaktu', lagu.currentTime.toString());
-        sessionStorage.setItem('musikAktif', lagu.paused?'false':'true');
-        window.location.href='galeri.html';
+        sessionStorage.setItem('musikAktif', lagu.paused ? 'false' : 'true');
+        window.location.href = 'galeri.html';
     }
     </script>
 </body>

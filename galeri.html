@@ -44,7 +44,7 @@
         .curtain-open .curtain-wrapper-left  { transform: translateX(-55%); opacity: 0; }
         .curtain-open .curtain-wrapper-right { transform: translateX(55%);  opacity: 0; }
 
-        /* ── MUSIC BTN ── */
+        /* ── MUSIC BTN — hidden tapi tetap ada untuk toggle ── */
         .music-btn {
             position: fixed; bottom: 24px; right: 24px;
             width: 48px; height: 48px; border-radius: 50%;
@@ -88,14 +88,29 @@
         }
         @media (max-width: 640px) { .timeline-track::before { left: 20px; } }
 
-        /* ── MEMORY ITEM — default VISIBLE (no JS opacity trick) ── */
+        /* ── MEMORY ITEM ── */
         .memory-item {
             display: grid;
             grid-template-columns: 1fr 40px 1fr;
             align-items: start;
             margin-bottom: 80px;
             position: relative;
-            /* Animation state — starts hidden via class, JS adds .anim-hidden then .anim-show */
+            /* Default state: hidden dari bawah */
+            opacity: 0;
+            transform: translateY(48px);
+            transition: opacity 0.75s ease, transform 0.75s ease;
+        }
+
+        /* State visible */
+        .memory-item.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* State keluar ke atas (sudah lewat) */
+        .memory-item.is-above {
+            opacity: 0;
+            transform: translateY(-48px);
         }
 
         /* Odd */
@@ -116,23 +131,6 @@
             .memory-item:nth-child(even) .mem-node { grid-column: 1; grid-row: 1; }
             .memory-item:nth-child(odd)  .mem-text,
             .memory-item:nth-child(even) .mem-text { grid-column: 2; grid-row: 2; padding: 0; text-align: left; }
-        }
-
-        /* ── SCROLL ANIMATION CLASSES (applied by JS) ── */
-        .memory-item.anim-hidden {
-            opacity: 0;
-            transform: translateY(48px);
-            transition: opacity 0.75s ease, transform 0.75s ease;
-        }
-        .memory-item.anim-show {
-            opacity: 1;
-            transform: translateY(0);
-            transition: opacity 0.75s ease, transform 0.75s ease;
-        }
-        .memory-item.anim-hidden-top {
-            opacity: 0;
-            transform: translateY(-48px);
-            transition: opacity 0.75s ease, transform 0.75s ease;
         }
 
         /* ── NODE DOT ── */
@@ -192,6 +190,7 @@
         <div class="curtain-wrapper-right"></div>
     </div>
 
+    <!-- Tombol musik tetap ada untuk toggle manual -->
     <button class="music-btn" id="musicBtn" onclick="toggleMusik()">🎵</button>
 
     <div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
@@ -268,72 +267,100 @@
     </div>
 
     <script>
-    /* ═══ MUSIK ═══ */
+    /* ═══ MUSIK — autoplay saat halaman dimuat ═══ */
     const lagu = document.getElementById('lagu-romantis');
     const musicBtn = document.getElementById('musicBtn');
 
-    window.addEventListener('load', () => {
-        const aktif = sessionStorage.getItem('musikAktif') === 'true';
+    function tryAutoplay() {
+        // Ambil posisi musik dari session jika ada
         const waktu = parseFloat(sessionStorage.getItem('musikWaktu') || '0');
-        if (aktif) {
-            lagu.currentTime = waktu;
-            lagu.play().catch(() => {});
+        lagu.currentTime = waktu;
+        lagu.play().then(() => {
+            sessionStorage.setItem('musikAktif', 'true');
             musicBtn.textContent = '🎵';
-        } else {
+        }).catch(() => {
+            // Browser blokir autoplay — tunggu interaksi user pertama
             musicBtn.textContent = '🔇';
-        }
+            const unlockAudio = () => {
+                lagu.play().then(() => {
+                    sessionStorage.setItem('musikAktif', 'true');
+                    musicBtn.textContent = '🎵';
+                }).catch(() => {});
+                document.removeEventListener('click', unlockAudio);
+                document.removeEventListener('touchstart', unlockAudio);
+                document.removeEventListener('scroll', unlockAudio);
+            };
+            document.addEventListener('click', unlockAudio, { once: true });
+            document.addEventListener('touchstart', unlockAudio, { once: true });
+            document.addEventListener('scroll', unlockAudio, { once: true });
+        });
+    }
+
+    window.addEventListener('load', () => {
+        tryAutoplay();
+        // Buka tirai
         setTimeout(() => { document.getElementById('tirai').classList.add('curtain-open'); }, 300);
     });
 
     setInterval(() => { sessionStorage.setItem('musikWaktu', lagu.currentTime.toString()); }, 300);
 
     function toggleMusik() {
-        if (lagu.paused) { lagu.play().catch(() => {}); sessionStorage.setItem('musikAktif','true'); musicBtn.textContent='🎵'; }
-        else { lagu.pause(); sessionStorage.setItem('musikAktif','false'); musicBtn.textContent='🔇'; }
+        if (lagu.paused) {
+            lagu.play().catch(() => {});
+            sessionStorage.setItem('musikAktif', 'true');
+            musicBtn.textContent = '🎵';
+        } else {
+            lagu.pause();
+            sessionStorage.setItem('musikAktif', 'false');
+            musicBtn.textContent = '🔇';
+        }
     }
 
-    /* ═══ SCROLL ANIMATION DUA ARAH ═══
-       Strategi: gunakan posisi relatif viewport untuk tahu item
-       datang dari bawah atau dari atas saat masuk viewport.
-    ════════════════════════════════════ */
-    const items = document.querySelectorAll('.memory-item');
+    /* ═══════════════════════════════════════════════════════
+       SCROLL ANIMATION DUA ARAH — PERBAIKAN
+       Strategi: pakai scroll event + getBoundingClientRect()
+       agar state "di atas" vs "di bawah" terdeteksi akurat.
+    ════════════════════════════════════════════════════════ */
+    const items = Array.from(document.querySelectorAll('.memory-item'));
+    const THRESHOLD = 0.15; // 15% item harus terlihat agar trigger
 
-    // Catat apakah item sudah pernah terlihat
-    const seenMap = new Map();
+    function updateItemVisibility() {
+        const vh = window.innerHeight;
 
-    // Tandai semua item hidden dari bawah dulu (safe: setelah DOM siap)
-    items.forEach(item => {
-        item.classList.add('anim-hidden');
-        seenMap.set(item, false);
-    });
+        items.forEach(item => {
+            const rect = item.getBoundingClientRect();
+            const itemH = rect.height;
 
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            const el = entry.target;
-            const rect = entry.boundingClientRect;
+            // Hitung berapa persen item yang terlihat
+            const visibleTop    = Math.max(rect.top, 0);
+            const visibleBottom = Math.min(rect.bottom, vh);
+            const visiblePx     = Math.max(0, visibleBottom - visibleTop);
+            const visibleRatio  = visiblePx / itemH;
 
-            if (entry.isIntersecting) {
-                // Masuk viewport → tampilkan
-                el.classList.remove('anim-hidden', 'anim-hidden-top');
-                el.classList.add('anim-show');
-                seenMap.set(el, true);
+            if (visibleRatio >= THRESHOLD) {
+                // Terlihat di viewport
+                item.classList.add('is-visible');
+                item.classList.remove('is-above');
+            } else if (rect.bottom < 0) {
+                // Item sudah melewati atas viewport — animasi ke atas
+                item.classList.remove('is-visible');
+                item.classList.add('is-above');
             } else {
-                // Keluar viewport
-                if (rect.top > window.innerHeight) {
-                    // Item di bawah viewport (belum di-scroll ke sana)
-                    el.classList.remove('anim-show', 'anim-hidden-top');
-                    el.classList.add('anim-hidden');
-                } else if (rect.bottom < 0) {
-                    // Item sudah melewati atas viewport (scroll ke bawah terlalu jauh)
-                    // Reset agar animasi muncul lagi saat scroll balik ke atas
-                    el.classList.remove('anim-show', 'anim-hidden-top');
-                    el.classList.add('anim-hidden');
-                }
+                // Item di bawah viewport — kembali ke state hidden bawah
+                item.classList.remove('is-visible');
+                item.classList.remove('is-above');
             }
         });
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    }
 
-    items.forEach(item => observer.observe(item));
+    // Jalankan saat scroll dan resize
+    window.addEventListener('scroll', updateItemVisibility, { passive: true });
+    window.addEventListener('resize', updateItemVisibility, { passive: true });
+
+    // Jalankan sekali saat load
+    window.addEventListener('load', updateItemVisibility);
+    // Fallback jika load sudah lewat
+    updateItemVisibility();
 
     /* ═══ LIGHTBOX ═══ */
     function openLightbox(img) {
