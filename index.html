@@ -5,179 +5,338 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Our Anniversary | Angga & Tsania ✨</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 
     <style>
-        /* ========================================================
-           1. RESET & STYLE DASAR
-           ======================================================== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --rose: #b76e79;
+            --rose-deep: #8b5a6c;
+            --rose-pale: #f2d7df;
+            --blush: #f7c5d0;
+            --cream: #fdf8f5;
+            --text-dark: #3d2c2c;
+            --text-mid: #7d6363;
         }
         
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'DM Sans', sans-serif;
             min-height: 100vh;
-            display: flex; 
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            /* Background Gradasi Pastel Bergerak (Soft Pink, Lavender, Peach) */
-            background: linear-gradient(135deg, #fbc5d8, #ecd5e9, #f7d6c8);
-            background-size: 400% 400%;
-            animation: gradientBg 12s ease infinite;
-            color: #4a3e3e;
+            background: var(--cream);
+            color: var(--text-dark);
             text-align: center;
             padding: 20px;
             position: relative;
             overflow: hidden;
         }
 
-        /* Animasi Perubahan Warna Background secara Halus */
-        @keyframes gradientBg {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        /* ── NOISE TEXTURE OVERLAY ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 0;
         }
 
-        /* Container Utama agar Konten Rapi di Tengah */
+        /* ── SOFT GRADIENT BLOBS ── */
+        .blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .blob-1 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, #f4b8c8 0%, transparent 70%);
+            top: -150px; right: -100px;
+            animation: blobFloat 14s ease-in-out infinite alternate;
+        }
+        .blob-2 {
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, #dbb8e8 0%, transparent 70%);
+            bottom: -100px; left: -80px;
+            animation: blobFloat 18s ease-in-out infinite alternate-reverse;
+        }
+        .blob-3 {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, #f7d6c8 0%, transparent 70%);
+            top: 40%; left: 30%;
+            animation: blobFloat 20s ease-in-out infinite alternate;
+        }
+        @keyframes blobFloat {
+            from { transform: translate(0, 0) scale(1); }
+            to   { transform: translate(30px, -30px) scale(1.1); }
+        }
+
+        /* ── PETAL PARTICLES ── */
+        .petal {
+            position: fixed;
+            background: linear-gradient(135deg, rgba(255,182,193,0.7), rgba(255,218,224,0.4));
+            border-radius: 150% 0 150% 150%;
+            animation: petalFall linear infinite;
+            pointer-events: none;
+            z-index: 1;
+        }
+        @keyframes petalFall {
+            0%   { transform: translateY(-5vh) translateX(0) rotate(0deg);   opacity: 0; }
+            10%  { opacity: 1; }
+            90%  { opacity: 0.7; }
+            100% { transform: translateY(105vh) translateX(60px) rotate(400deg); opacity: 0; }
+        }
+
+        /* ── MAIN CONTAINER ── */
         .welcome-container {
-            max-width: 600px;
+            position: relative;
+            z-index: 2;
             display: flex;
             flex-direction: column;
             align-items: center;
-            z-index: 2; /* Berada di atas kelopak bunga */
+            max-width: 560px;
         }
 
-        /* ========================================================
-           2. TYPOGRAPHY (GAYA HURUF GEN-Z AESTHETIC)
-           ======================================================== */
+        /* ── SMALL BADGE TOP ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(183, 110, 121, 0.08);
+            border: 1px solid rgba(183, 110, 121, 0.2);
+            border-radius: 100px;
+            padding: 6px 18px;
+            font-size: 0.72rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--rose);
+            margin-bottom: 32px;
+            animation: fadeInDown 1s ease both;
+        }
+        .badge span { font-size: 0.9rem; }
+
+        /* ── HEADLINE ── */
         h1 {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Cormorant Garamond', serif;
+            font-weight: 300;
+            font-size: clamp(3.5rem, 10vw, 5.5rem);
+            letter-spacing: -2px;
+            line-height: 1;
+            margin-bottom: 4px;
+            color: var(--text-dark);
+            animation: fadeInUp 1s ease 0.2s both;
+        }
+        h1 em {
             font-style: italic;
-            font-weight: 400;
-            font-size: 3.8rem;
-            letter-spacing: -1px;
-            margin-bottom: 8px;
-            color: #8b5a6c; /* Deep Dusty Rose */
-            text-transform: lowercase; /* Trend huruf kecil semua */
+            color: var(--rose-deep);
         }
 
-        .sub-title {
-            font-size: 0.85rem;
-            text-transform: lowercase;
-            letter-spacing: 4px;
-            color: #a6828e;
-            margin-bottom: 40px;
-            font-weight: 500;
+        .year-badge {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            font-size: 1.1rem;
+            color: var(--rose);
+            letter-spacing: 2px;
+            margin-bottom: 36px;
+            animation: fadeInUp 1s ease 0.35s both;
         }
 
-        /* Wadah Penjaga Tinggi agar Layout Tidak Bergeser saat Mengetik */
+        /* ── DIVIDER ── */
+        .divider {
+            width: 60px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--rose), transparent);
+            margin-bottom: 24px;
+            animation: fadeIn 1s ease 0.45s both;
+        }
+
+        /* ── TYPING TEXT ── */
         .typing-container {
-            margin-bottom: 40px;
-            height: 28px;
+            height: 32px;
+            margin-bottom: 44px;
+            animation: fadeIn 1s ease 0.5s both;
         }
-        
-        /* Efek Teks Mengetik */
         .typing-text {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Cormorant Garamond', serif;
             font-style: italic;
-            font-size: 1.2rem;
-            color: #7d6363;
-            border-right: 2px solid #8b5a6c;
+            font-size: 1.15rem;
+            color: var(--text-mid);
+            border-right: 1.5px solid var(--rose-deep);
             white-space: nowrap;
             overflow: hidden;
             width: 0;
             display: inline-block;
-            animation: typing 3s steps(25) forwards, blink 0.75s step-end infinite;
+            animation: typing 3.5s steps(35) 1.2s forwards, blink 0.8s step-end 1.2s infinite;
         }
+        @keyframes typing { from { width: 0; } to { width: 100%; } }
+        @keyframes blink  { from, to { border-color: transparent; } 50% { border-color: var(--rose-deep); } }
 
-        @keyframes typing { 
-            from { width: 0; } 
-            to { width: 100%; } 
+        /* ── COUNTDOWN ── */
+        .countdown-wrap {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 44px;
+            animation: fadeInUp 1s ease 0.6s both;
         }
-        
-        @keyframes blink { 
-            from, to { border-color: transparent; } 
-            50% { border-color: #8b5a6c; } 
+        .count-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        
-        /* ========================================================
-           3. TOMBOL MINIMALIS (OUTLINE STYLE)
-           ======================================================== */
-        .btn {
-            padding: 12px 28px;
-            background-color: transparent;
-            color: #8b5a6c;
-            border: 1px solid #8b5a6c;
-            border-radius: 8px; /* Gaya kotak minimalis modern */
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-            transition: all 0.3s ease;
+        .count-num {
+            font-family: 'Cormorant Garamond', serif;
+            font-weight: 300;
+            font-size: 2.4rem;
+            color: var(--rose-deep);
+            line-height: 1;
+        }
+        .count-label {
+            font-size: 0.65rem;
+            letter-spacing: 2px;
             text-transform: uppercase;
+            color: var(--text-mid);
+            margin-top: 4px;
+        }
+        .count-sep {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 2rem;
+            color: var(--rose-pale);
+            align-self: flex-start;
+            padding-top: 4px;
         }
 
-        .btn:hover {
-            background-color: #8b5a6c;
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(139, 90, 108, 0.2);
+        /* ── BUTTON ── */
+        .btn {
+            position: relative;
+            padding: 14px 40px;
+            background: transparent;
+            color: var(--rose-deep);
+            border: 1px solid var(--rose-deep);
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 500;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            transition: all 0.4s ease;
+            overflow: hidden;
+            animation: fadeInUp 1s ease 0.75s both;
         }
-
-        /* ========================================================
-           4. ORNAMEN KELOPAK BUNGA BERGUGURAN
-           ======================================================== */
-        .petal {
+        .btn::before {
+            content: '';
             position: absolute;
-            background-color: rgba(255, 255, 255, 0.5);
-            border-radius: 150% 0 150% 150%;
-            animation: float 8s infinite linear;
+            inset: 0;
+            background: var(--rose-deep);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+            z-index: -1;
+        }
+        .btn:hover { color: white; }
+        .btn:hover::before { transform: scaleX(1); }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(139,90,108,0.2); }
+
+        /* ── KEYFRAMES ── */
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
+        @keyframes fadeInUp   { from { opacity: 0; transform: translateY(16px); }  to { opacity: 1; transform: none; } }
+        @keyframes fadeIn     { from { opacity: 0; } to { opacity: 1; } }
+
+        /* ── HEART PULSE DECORATION ── */
+        .heart-deco {
+            position: fixed;
+            font-size: 1.2rem;
+            animation: heartPop 4s ease-in-out infinite;
             pointer-events: none;
             z-index: 1;
+            opacity: 0;
         }
-
-        @keyframes float {
-            0% { 
-                transform: translateY(-10vh) translateX(0) rotate(0deg); 
-                opacity: 1; 
-            }
-            100% { 
-                transform: translateY(110vh) translateX(80px) rotate(360deg); 
-                opacity: 0; 
-            }
+        @keyframes heartPop {
+            0%, 100% { opacity: 0; transform: translateY(0) scale(0.5); }
+            20%       { opacity: 0.6; transform: translateY(-30px) scale(1); }
+            80%       { opacity: 0.3; transform: translateY(-80px) scale(0.8); }
         }
     </style>
 </head>
 <body>
 
-    <div class="petal" style="left: 10%; width: 12px; height: 12px; animation-delay: 0s; animation-duration: 9s;"></div>
-    <div class="petal" style="left: 25%; width: 16px; height: 16px; animation-delay: 3s; animation-duration: 11s;"></div>
-    <div class="petal" style="left: 45%; width: 18px; height: 18px; animation-delay: 1s; animation-duration: 10s;"></div>
-    <div class="petal" style="left: 65%; width: 10px; height: 10px; animation-delay: 5s; animation-duration: 8s;"></div>
-    <div class="petal" style="left: 85%; width: 14px; height: 14px; animation-delay: 2s; animation-duration: 12s;"></div>
+    <!-- Background blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <!-- Petals -->
+    <div class="petal" style="left:8%;  width:10px; height:10px; animation-duration:10s; animation-delay:0s;"></div>
+    <div class="petal" style="left:20%; width:14px; height:14px; animation-duration:13s; animation-delay:2s;"></div>
+    <div class="petal" style="left:35%; width:8px;  height:8px;  animation-duration:9s;  animation-delay:4s;"></div>
+    <div class="petal" style="left:55%; width:16px; height:16px; animation-duration:12s; animation-delay:1s;"></div>
+    <div class="petal" style="left:70%; width:12px; height:12px; animation-duration:11s; animation-delay:6s;"></div>
+    <div class="petal" style="left:85%; width:9px;  height:9px;  animation-duration:14s; animation-delay:3s;"></div>
+    <div class="petal" style="left:93%; width:13px; height:13px; animation-duration:10s; animation-delay:7s;"></div>
+
+    <!-- Floating hearts -->
+    <div class="heart-deco" style="left:15%; top:70%; animation-delay:0s; animation-duration:5s;">🤍</div>
+    <div class="heart-deco" style="left:80%; top:75%; animation-delay:2s; animation-duration:6s;">🌸</div>
+    <div class="heart-deco" style="left:50%; top:80%; animation-delay:4s; animation-duration:4.5s;">✨</div>
 
     <div class="welcome-container">
-        <h1>Angga & Tsania.</h1>
-        <div class="sub-title">happy anniversary, love.</div>
-        
+        <div class="badge"><span>🌸</span> 2 years of us <span>🌸</span></div>
+
+        <h1>Angga &<br><em>Tsania.</em></h1>
+        <div class="year-badge">19 Juli 2024 — 19 Juli 2026</div>
+
+        <div class="divider"></div>
+
         <div class="typing-container">
             <div class="typing-text">another year down, forever to go... 🤍</div>
+        </div>
+
+        <!-- Live Countdown -->
+        <div class="countdown-wrap" id="countdown">
+            <div class="count-unit"><div class="count-num" id="cd-d">--</div><div class="count-label">days</div></div>
+            <div class="count-sep">:</div>
+            <div class="count-unit"><div class="count-num" id="cd-h">--</div><div class="count-label">hours</div></div>
+            <div class="count-sep">:</div>
+            <div class="count-unit"><div class="count-num" id="cd-m">--</div><div class="count-label">mins</div></div>
+            <div class="count-sep">:</div>
+            <div class="count-unit"><div class="count-num" id="cd-s">--</div><div class="count-label">secs</div></div>
         </div>
         
         <button class="btn" onclick="mulaiCerita()">open our story</button>
     </div>
 
     <script>
+        /* ── COUNTDOWN ── */
+        const target = new Date('2026-07-19T00:00:00');
+        function updateCd() {
+            const now  = new Date();
+            const diff = target - now;
+            if (diff <= 0) {
+                document.getElementById('countdown').innerHTML = '<div style="font-family:Cormorant Garamond,serif;font-style:italic;font-size:1.5rem;color:#b76e79;">Happy 2nd Anniversary! 🎉</div>';
+                return;
+            }
+            const d = Math.floor(diff / 86400000);
+            const h = Math.floor((diff % 86400000) / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            document.getElementById('cd-d').textContent = String(d).padStart(2,'0');
+            document.getElementById('cd-h').textContent = String(h).padStart(2,'0');
+            document.getElementById('cd-m').textContent = String(m).padStart(2,'0');
+            document.getElementById('cd-s').textContent = String(s).padStart(2,'0');
+        }
+        updateCd();
+        setInterval(updateCd, 1000);
+
+        /* ── NAVIGATE ── */
         function mulaiCerita() {
-            // Mengaktifkan penanda audio di localStorage agar halaman selanjutnya tahu musik harus berputar
-            localStorage.setItem('putarMusik', 'true');
-            localStorage.setItem('waktuMusik', '0');
-            
-            // Berpindah ke file Halaman 2 (galeri.html)
+            sessionStorage.setItem('musikAktif', 'true');
+            sessionStorage.setItem('musikWaktu', '0');
             window.location.href = 'galeri.html';
         }
     </script>
